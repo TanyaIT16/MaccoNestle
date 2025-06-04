@@ -1,0 +1,1226 @@
+
+#include "StepperSmart.h"
+#include "ID_Def.h"
+//#include "Assets.h"
+
+StepperSmart motor0 = StepperSmart();
+#define DIR_PIN 10
+#define ENA_PIN 11
+#define STEP_PIN 12
+#define ENDSWITCH_PIN 13
+
+void setup (){
+ //motor0.Attach(ID_MotorE0, AS5600_I2C_ENCODER, DIR_PIN, ENA_PIN, STEP_PIN, ENDSWITCH_PIN);
+
+  //motor0.SetMode(CL_ADVANCEAMMOUNT_MODE);
+  //motor0.SetSteps(1600);
+  //motor0.Start();
+
+}
+
+void loop() {
+
+//motor0.Run();
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+#include "Wire.h"
+#include "TimerOne.h"
+#include <EEPROM.h>
+
+
+#define ARDUINO_ATMEL328
+
+//#define _AS5600
+
+
+/////// AS5600 Variables
+#ifdef _AS5600
+#include "AS5600.h"
+#define encoderSteps 4096
+#define syncStepEnco 64
+#define syncSteps 50
+#define syncEnco 128
+
+#define EnaBehavior HIGH
+#define DirBehavior HIGH
+AS5600 as5600;  //  use default Wire
+
+#endif
+
+
+//////// Incremental Encoder Variables
+#ifndef _AS5600
+#define IncEnco
+
+#define encoA_Pin 2
+#define encoB_Pin 3
+#define encoN_Pin 4
+
+#define encoderSteps 1000
+#define syncStepEnco 50 // 25 // 64
+#define syncSteps 20 //  40  //  25
+#define syncEnco 32
+
+#define EnaBehavior LOW
+#define DirBehavior LOW
+
+volatile bool ASignal = 0;
+volatile bool BSignal = 0;
+volatile bool NSignal = 0;
+
+volatile bool encoDir = 0;
+volatile int encoPos = 0;
+volatile int lastEncoPos = 0;
+volatile byte encoTurn = 0;
+
+int32_t _lastMeasurement = 0;
+
+#endif
+
+
+#define Position "position"
+#define Speed "speed"
+#define Acceleration "acceleration"
+#define Dcolon ":"
+#define At "at"
+#define Min "min"
+#define Max "max"
+
+///EPROM MAP////
+#define maxEPROMSize 0x200
+
+#define EAddr_ERROR 0x00
+#define EAddr_BoolFlags 0x40
+#define EAddr_SerialPriority 0x41
+#define EAddr_MotorAddr 0x42
+#define EAddr_PosError 0x43
+#define EAddr_SpeedError 0x44
+#define EAddr_limitCollision 0x45
+
+#define EAddr_Acc 0x61
+#define EAddr_Speed 0x63
+#define EAddr_Pos 0x65
+#define EAddr_MinSpeed 0x67
+#define EAddr_MinAcc 0x69
+#define EAddr_MaxSpeed 0x6B
+#define EAddr_MaxAcc 0x6D
+#define EAddr_Jam 0x6F
+///END EPROM MAP////
+
+////// ERROR types ///////////
+
+#define ERROR_CollisionMax 0xF1
+#define ERROR_NoConnection 0x41
+#define ERROR_TimeOut 0x42
+#define ERROR_EncoderFail 0x43
+
+///// End ERROR types////////////
+
+
+
+#define byteMask 0xFF
+#define refTime 5000
+
+
+#define S_standBy 0
+#define S_stepControl 1
+#define S_posControl 2
+#define S_speedControl 3
+#define S_config 4
+#define S_comunication 5
+#define S_status 6
+
+
+#define dirPin 10
+#define enaPin 11
+#define stepPin 12
+#define endSwitchPin 6
+#define startSwitchPin 5
+
+
+
+#define stepsRev 200
+#define uSteps 8
+
+//#define speed 300
+//#define posError 16
+//#define speedError 32
+
+#define serialDelay 500      //in us
+#define updateInfoDelay 500  // in ms
+#define maxStrSize 32
+
+
+
+//Config Parameters
+// (type) [size] {EPROM_Addr} "charUID" <configParam>
+byte ERROR = 0;  // (byte) [1] {0x00} "something" <0>
+
+byte boolFlag = 0;            // (byte) [1] {0x40} "@" <64>
+byte serialPriority = 4;      // (byte) [1] {0x41} "A" <65>
+byte motorAddr = 0b00000001;  // (byte) [1] {0x42} "B" <66>
+byte posError = 8;            // (byte) [1] {0x43} "C" <67>
+byte speedError = 32;         // (byte) [1] {0x44} "D" <68>
+byte limitCollision = 10;     // (byte) [1] {0x45} "E" <69>
+
+
+int acc = 2;      // (Int 16) [2] {0x61} "a" <97>
+int speed = 300;  // (Int 16) [2] {0x63} "c" <99>
+int pos = 300;    // (Int 16) [2] {0x65} "e" <101>
+
+int minSpeed = 30;    // (Int 16) [2] {0x67} "g" <103>
+int minAcc = 200;     // (Int 16) [2] {0x69} "i" <105>
+int maxSpeed = 3000;  // (Int 16) [2] {0x6B} "k" <107>
+int maxAcc = 8000;    // (Int 16) [2] {0x6D} "m" <109>
+int jam = 1;          // (Int 16) [2] {0x6F} "o" <111>
+unsigned int limitSteps = 16000;
+unsigned int returnSteps = 8;
+
+
+//Use Combined into a one byte
+bool IsMaster = false;                 // (bool) [0] {} "0" <48>
+bool IsAcc = true;                     // (bool) [0] {} "1" <49>
+volatile bool _stepDirection = false;  // (bool) [0] {} "2" <50>
+bool _encoDirection = false;           // (bool) [0] {} "3" <51>
+bool _IsCollisionLimit = true;         // (bool) [0] {} "4" <52>
+bool _IsSwitchEnd = false;             // (bool) [0] {} "4" <52>
+bool _IsSwitchStart = false;
+
+
+bool IsWARNING = false;  // (bool) [0] {} "5" <53>
+bool IsERROR = false;    // (bool) [0] {} "6" <54>
+bool IsALARM = false;    // (bool) [0] {} "7" <55>
+
+//////ENCODER PARAMETERS//////////////
+
+
+//////STEPPER PARAMETERS/////////
+volatile bool _IsSteps2Do = false;
+volatile bool _IsBatchIni = false;
+volatile bool _IsBatchEnd = true;
+volatile int32_t _steps2Do = 0;
+int32_t _steps2Done = 0;       // only to BugFixing
+int32_t _steps2Meausered = 0;  // only to BugFixing
+
+bool _SignalSwitch = false;
+int32_t _missSteps = 0;
+bool _IsSolvingCollision = false;
+byte batchNum = 0;
+byte maxBatch = 0;
+
+
+///////AUX PARAMETERS/////////////
+int32_t auxVal = 0;
+int refSpeed = 300;
+byte _configParam = 0;
+int32_t stepsLeft = 0;
+int32_t _stepsBatch = 0;
+int _nCounter = 0;
+
+bool _wasALine = false;
+
+////////ENCODER PARAMETERS/////////
+volatile int32_t lastPos = 0;
+//volatile int32_t pos = 0;
+int32_t iniPos = 0;
+
+
+///STATE MACHINE PARAMETERS/////
+static uint32_t lastTime = 0;
+int deltaTime = 0;
+
+volatile byte state, nextState = 0;
+
+bool initialized = false;
+bool running = false;
+bool finalized = true;
+
+*/
+
+/***Priority orders
+0 => Error reserved
+1 => Comunication reserved
+2 => Info data
+3 => Status data 
+4 => Debug data
+***/
+
+/*
+
+//EEPROM.get(eeAddress, f);
+void _SerialPrint(bool _IsLine = true, byte _priority = 4, String _printStr = "") {  // Serial print data with priority
+
+  if (_priority <= serialPriority) {
+
+    if (_wasALine) {
+      Serial.print((String)((String)_priority + " )" + "\t"));
+    }
+    if (_IsLine) {
+      _wasALine = true;
+      _printStr = _printStr;
+      Serial.println(_printStr);
+    } else {
+      _wasALine = false;
+      Serial.print(_printStr);
+    }
+  }
+}
+
+
+bool __ReadEEPROMParams() {
+  bool _check = true;
+
+
+  EEPROM.get(EAddr_BoolFlags, ERROR);
+  EEPROM.get(EAddr_BoolFlags, limitCollision);
+  EEPROM.get(EAddr_BoolFlags, boolFlag);
+  EEPROM.get(EAddr_SerialPriority, serialPriority);
+  EEPROM.get(EAddr_MotorAddr, motorAddr);
+  EEPROM.get(EAddr_PosError, posError);
+  EEPROM.get(EAddr_SpeedError, speedError);
+  EEPROM.get(EAddr_Acc, acc);
+  EEPROM.get(EAddr_Speed, speed);
+  EEPROM.get(EAddr_Pos, pos);
+  EEPROM.get(EAddr_MinSpeed, minSpeed);
+  EEPROM.get(EAddr_MinAcc, minAcc);
+  EEPROM.get(EAddr_MaxSpeed, maxSpeed);
+  EEPROM.get(EAddr_MaxAcc, maxAcc);
+  EEPROM.get(EAddr_Jam, jam);
+  return _check;
+}
+
+bool __UpdateEPROMParams() {
+  //EEPROM.put(eeAddress, f);
+  bool _check = true;
+  EEPROM.put(EAddr_BoolFlags, boolFlag);
+  EEPROM.put(EAddr_SerialPriority, serialPriority);
+  EEPROM.put(EAddr_MotorAddr, motorAddr);
+  EEPROM.put(EAddr_PosError, posError);
+  EEPROM.put(EAddr_SpeedError, speedError);
+  EEPROM.put(EAddr_Acc, acc);
+  EEPROM.put(EAddr_Speed, speed);
+  EEPROM.put(EAddr_Pos, pos);
+  EEPROM.put(EAddr_MinSpeed, minSpeed);
+  EEPROM.put(EAddr_MinAcc, minAcc);
+  EEPROM.put(EAddr_MaxSpeed, maxSpeed);
+  EEPROM.put(EAddr_MaxAcc, maxAcc);
+  EEPROM.put(EAddr_Jam, jam);
+
+  return _check;
+}
+
+byte __BoolJoiner() {  // sets the bools from the Boolflag
+
+  byte _boolFlag = _boolFlag = _boolFlag | _IsCollisionLimit;
+  _boolFlag = _boolFlag << 1;
+  _boolFlag = _boolFlag | _encoDirection;
+  _boolFlag = _boolFlag << 1;
+  _boolFlag = _boolFlag = _boolFlag | _stepDirection;
+  _boolFlag = _boolFlag << 1;
+  _boolFlag = _boolFlag = _boolFlag | IsAcc;
+  _boolFlag = _boolFlag << 1;
+  _boolFlag = _boolFlag = _boolFlag | IsMaster;
+
+
+  //boolFlag=_boolFlag;
+  return _boolFlag;
+}
+
+void __BoolSplitter(byte _boolFlag = boolFlag) {  // sets the bools from the Boolflag
+
+  IsMaster = (bool)(_boolFlag & 0b00000001);
+  _SerialPrint(false, 4, "\t");
+  _SerialPrint(false, 4, (String)IsMaster);
+  _boolFlag = _boolFlag >> 1;
+  IsAcc = (bool)(_boolFlag & 0b00000001);
+  _SerialPrint(false, 4, "\t");
+  _SerialPrint(false, 4, (String)IsAcc);
+  _boolFlag = _boolFlag >> 1;
+  _stepDirection = (bool)(_boolFlag & 0b00000001);
+  _SerialPrint(false, 4, "\t");
+  _SerialPrint(false, 4, (String)_stepDirection);
+  _boolFlag = _boolFlag >> 1;
+  _encoDirection = (bool)(_boolFlag & 0b00000001);
+  _SerialPrint(false, 4, "\t");
+  _SerialPrint(true, 4, (String)_encoDirection);
+  _boolFlag = _boolFlag >> 1;
+  _IsCollisionLimit = (bool)(_boolFlag & 0b00000001);
+  _SerialPrint(false, 4, "\t");
+  _SerialPrint(true, 4, (String)_IsCollisionLimit);
+}
+
+byte __ERROR_Event(byte _ERROR) {
+
+  ERROR = _ERROR;
+
+  _SerialPrint(false, 4, (String)((String) "\n" + "ERROR : "));
+  _SerialPrint(true, 1, (String)("E" + _ERROR));
+
+  if (_ERROR == 0) {
+
+    IsALARM = false;
+    IsERROR = false;
+    IsWARNING = false;
+  } else if (_ERROR < 64) {
+    IsWARNING = true;
+    nextState = 0;
+    stepsLeft = 0;
+    _stepsBatch = 0;
+  } else if (_ERROR < 96) {
+    IsERROR = true;
+    nextState = 0;
+    _steps2Do = 0;
+    _IsSteps2Do = 0;
+    stepsLeft = 0;
+    _stepsBatch = 0;
+  } else if (_ERROR < 128) {
+    IsALARM = true;
+    nextState = 0;
+    auxVal = 0;
+    _steps2Do = 0;
+    _IsSteps2Do = 0;
+    stepsLeft = 0;
+    _stepsBatch = 0;
+  }
+
+  else {
+    IsALARM = true;
+    IsERROR = true;
+    IsWARNING = true;
+  }
+
+
+  return _ERROR;
+}
+
+void _resetEnco() {
+#ifdef IncEnco
+  encoPos = encoTurn = 0;
+#endif
+
+#ifdef _AS5600
+  as5600.resetPosition();
+#endif
+}
+
+#ifdef IncEnco
+void _AEncoHandler() {
+
+  ASignal = digitalRead(encoA_Pin);  // read the A line of the encoder
+
+  volatile bool home = digitalRead(startSwitchPin);
+  if (home == true) {
+    _SerialPrint(true, 4, "Home...");
+    _SerialPrint(true, 4, (String)home);
+    _IsSteps2Do = false;
+    _stepsBatch = 0;
+    _steps2Do = 0;
+    _resetEnco();
+    _stepDirection = !_stepDirection;
+  }
+  if (ASignal) {
+    if (!BSignal) {
+      encoPos++;
+      encoDir = true;
+    }  // Determines the direction of the encoder
+    else {
+      encoPos--;
+      encoDir = false;
+    }
+  } else {
+    if (BSignal) {
+      encoPos++;
+      encoDir = true;
+    }  // Determines the direction of the encoder
+    else {
+      encoPos--;
+      encoDir = false;
+    }
+  }
+}
+
+void _BEncoHandler() {
+
+  BSignal = digitalRead(encoB_Pin);  // read the A line of the encoder
+  NSignal = digitalRead(encoN_Pin);  // read the A line of the encoder
+  if (BSignal) {
+    if (ASignal) {
+      encoPos++;
+      encoDir = true;
+    }  // Determines the direction of the encoder
+    else {
+      encoPos--;
+      encoDir = false;
+    }
+  } else {
+    if (!ASignal) {
+      encoPos++;
+      encoDir = true;
+    }  // Determines the direction of the encoder
+    else {
+      encoPos--;
+      encoDir = false;
+    }
+  }
+
+
+  if (NSignal) {
+    if (encoDir)
+      encoTurn++;
+    else
+      encoTurn--;
+  }
+}
+#endif
+
+
+
+void AccEvent(bool _dir = 1, int _acc = 1) {  // Acceleration handler
+  if (IsAcc) {
+    if (!_dir) {
+      speed += _acc;
+      if (speed > maxSpeed)
+        speed = maxSpeed;
+    } else {
+      speed -= _acc;
+      if (speed < minSpeed)
+        speed = minSpeed;
+    }
+  }
+  Timer1.setPeriod(speed);
+}
+
+int32_t _enco2steps(int32_t encoPos) {  // Converts Position encoder on to Steps
+  int32_t advSteps = ((float)encoPos / (float)syncEnco) * syncSteps;
+  return advSteps;
+}
+
+int32_t _steps2enco(int32_t stepsPos) {  // Converts Steps on to Position encoder
+  int32_t advEnco = ((float)stepsPos / (float)syncSteps) * syncEnco;
+  return advEnco;
+}
+
+int _degS2stepsS(int _degS) {  // converts degrees/s on to Steps/s
+  int _stepsS = (float)(4.44 * _degS);
+  return _stepsS;
+}
+
+int _delay2stepsS(int _microsDelay) {  // converts delay time (micros) on to Steps/s (FUNCTION IN BOTH DIRECTIONS) or in the other way
+  int _stepsS = (float)(1e6 / _microsDelay);
+  return _stepsS;
+}
+
+void _advanceStep() {  // ISR handler: control the advance of one single step
+  if (_IsSteps2Do) {
+    if (_steps2Do > 0) {
+      digitalWrite(stepPin, _SignalSwitch);
+      _steps2Do--;
+      _steps2Done++;
+      _SignalSwitch = !_SignalSwitch;
+      //AccEvent(1);
+    } else {
+      _IsSteps2Do = false;
+      _steps2Do = 0;
+      //speed = minSpeed;
+    }
+  }
+}
+
+int _getAngularSpeed(byte mode = 1) {
+  float _speed = 0;
+
+
+#ifdef IncEnco
+  uint32_t now = micros();
+  int _pos = encoPos;
+  uint32_t deltaT = now - _lastMeasurement;
+  int deltaA = _pos - lastEncoPos;
+
+  if (deltaA > encoderSteps / 2) deltaA -= encoderSteps;
+  if (deltaA < -encoderSteps / 2) deltaA += encoderSteps;
+  _speed = (deltaA * 1e6) / deltaT;
+
+  //  remember last time & angle
+  _lastMeasurement = now;
+  lastEncoPos = _pos;
+
+  if (mode == 4) {
+    _speed = _speed;
+  } else if (mode == 2) {
+    _speed = _speed * 360 / encoderSteps;
+  } else if (mode == 1) {
+    _speed = _speed * 2 * 3.14159 / encoderSteps;
+  } else if (mode == 3) {
+    _speed = _speed * 60 / encoderSteps;
+  }
+
+#endif
+
+
+#ifdef _AS5600
+  as5600.getAngularSpeed(mode);
+#endif
+  return (int)_speed;
+}
+
+int32_t _getPos(bool Is_absolute = false) {  // Gets the position of the encoder
+  int32_t _pos = 0;
+#ifdef _AS5600
+  _pos = as5600.getCumulativePosition();
+#endif
+
+#ifdef IncEnco
+  _pos = encoPos;
+#endif
+
+  if (!Is_absolute) {
+
+    while (_pos > encoderSteps) {
+      _pos -= encoderSteps;
+    }
+    while (_pos < -encoderSteps) {
+      _pos += encoderSteps;
+    }
+    if (_pos < 0)
+      _pos = encoderSteps - (-_pos);
+  }
+
+  return _pos;
+}
+
+bool StatusInfo() {  // Show the status of the machine
+  pos = _getPos(true);
+  static uint32_t lastTime = 0;
+  if (millis() - lastTime >= updateInfoDelay) {
+    lastTime = millis();
+    _SerialPrint(false, 3, (String)(_getPos(true)));
+    _SerialPrint(false, 3, "\t");
+  }
+  return 1;
+}
+
+bool PosControl(int32_t refPos, bool IsRelPos = true) {  // Go to a relative position in the shortest path, controls to stay in position
+  pos = _getPos(false);
+  if (IsRelPos)                            // If is a relative position, then limit to his range
+    refPos = refPos & 0b0000111111111111;  // Limit the value to a max of 4095 positions
+  static uint32_t lastTime = 0;
+  digitalWrite(enaPin, EnaBehavior);
+  if (refPos - pos < 0 && abs(refPos - pos) > posError) {
+    digitalWrite(dirPin, DirBehavior);
+    _IsSteps2Do = true;
+    _steps2Do = 2;
+  } else if (refPos - pos > 0 && abs(refPos - pos) > posError) {
+    digitalWrite(dirPin, !DirBehavior);
+    _IsSteps2Do = true;
+    _steps2Do = 2;
+  } else {
+    digitalWrite(enaPin, !EnaBehavior);
+    _IsSteps2Do = false;
+  }
+  if (millis() - lastTime >= 500) {
+    lastTime = millis();
+    _SerialPrint(false, 4, (String)(_getPos(!IsRelPos)));
+    _SerialPrint(true, 4, "\t");
+  }
+  return 1;
+}
+
+int32_t _MissSteps(int32_t _advSteps) {  // Check the missed steps for a batch
+  pos = _getPos(true);                   // update Relative Position
+  int32_t _estimatePos = lastPos + _steps2enco(_advSteps);
+  int32_t _missedSteps = _enco2steps(abs(pos - _estimatePos));
+
+  if (_missedSteps > _advSteps)
+    _missedSteps = _advSteps;
+  _SerialPrint(false, 4, "Missed steps: \t \t");
+  _SerialPrint(true, 4, (String)(_missedSteps));
+
+  _SerialPrint(false, 4, "From a total of: \t \t");
+  _SerialPrint(true, 4, (String)(_advSteps));
+  _SerialPrint(true, 4, " ");
+
+  return _missedSteps;
+}
+
+int32_t StepControl(int32_t _refSteps = 0, bool _dir = _stepDirection, bool IsBatch = true) {  // Advance a determinate number of steps
+
+  if (_IsSwitchEnd || _IsSwitchStart) {
+    _refSteps = min(_refSteps, limitSteps);
+  }
+
+  lastPos = pos;  // updateLastPos
+  _steps2Meausered = _enco2steps(pos);
+  digitalWrite(dirPin, _dir);
+  if (_refSteps < 0)
+    _refSteps = 0;
+
+  _SerialPrint(false, 4, "Asign a total of:");
+  *//*if (_steps2Meausered < _refSteps / 2)
+    AccEvent(1);
+  else
+    AccEvent(0);*//*
+  if (IsBatch) {
+    if (_refSteps >= syncSteps) {  // Is more than SyncSteps 2DO
+      _steps2Do = 2 * syncSteps;   // Asign a SyncSteps to a Batch
+      _refSteps = syncSteps;       //Discount a full batch size
+
+    } else {                      // Is less than SyncSteps 2DO
+      _steps2Do = 2 * _refSteps;  // Asign the rest of steps to a Batch
+    }
+    _IsSteps2Do = true;
+  } else {
+    _steps2Do = 2 * _refSteps;  // Asign the rest of steps to a Batch
+    _IsSteps2Do = true;
+  }
+
+  _SerialPrint(false, 4, (String)(_refSteps));
+  _SerialPrint(true, 4, "steps.");
+
+  return _refSteps;
+
+}  // End StepsControl
+
+bool _CollisionSolver(int32_t _advStep, bool _dir, int32_t _collisionError) {  // Solve the collision
+  bool _collisionSolved = false;
+
+  if (_missSteps > posError) {
+    if (_nCounter <= limitCollision || !_IsCollisionLimit) {  // Its a collision
+      if (!_IsSolvingCollision && !_IsSteps2Do) {             // Try to solve the collision
+        StepControl(_collisionError, !_dir, false);
+        _IsSolvingCollision = true;
+        _nCounter++;
+      } else if (_IsSolvingCollision && !_IsSteps2Do) {  // Restore the position if it was a collision solving event
+        StepControl(_collisionError, _dir, false);
+
+        _missSteps = _MissSteps(_advStep);
+        if (_missSteps > posError) {
+          _IsSolvingCollision = false;
+          _collisionSolved = true;
+        }
+      }
+    } else {
+      _nCounter = 0;
+      _collisionSolved = true;
+      __ERROR_Event(ERROR_CollisionMax);
+    }
+  } else {
+
+
+    _collisionSolved = true;
+  }
+
+  return _collisionSolved;
+}
+
+bool SpeedControl(int _speed = speed) {  // FUNCTION MODE Advance at a controlled speed
+  bool IsRightSpeed = false;
+  int _measuredSpeed = _getAngularSpeed(2);
+  //_SerialPrint(true,4,"º/s");
+  _IsSteps2Do = true;
+  _steps2Do = posError;
+
+  _measuredSpeed = _degS2stepsS(_measuredSpeed);
+
+
+  int _deltaSpeed = _measuredSpeed - refSpeed;
+  //if(micros()-lastTime > 5000 ){
+  _SerialPrint(true, 4, (String)(_deltaSpeed));
+  //_SerialPrint(true,4,refSpeed);
+  _SerialPrint(true, 4, "");
+  //}
+  if (_deltaSpeed < -posError) {
+    AccEvent(1, 1);
+    //speed = _speed;
+    //Timer1.setPeriod(speed);
+  } else if (_deltaSpeed > posError) {
+    AccEvent(0, 1);
+  }
+}
+
+char configEvent(char _buff, int32_t _auxVal) {
+
+  switch (_buff) {
+    case '@':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "BoolFlag : ");
+      _SerialPrint(false, 2, (String)_buff);
+      boolFlag = (byte)_auxVal;
+      __BoolSplitter(boolFlag);
+      break;
+    case 'A':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "SerialPriority : ");
+      _SerialPrint(false, 2, (String)_buff);
+      serialPriority = (byte)_auxVal;
+      break;
+    case 'B':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "motor Addr : ");
+      _SerialPrint(false, 2, (String)_buff);
+      motorAddr = (byte)_auxVal;
+      break;
+    case 'C':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "Pos Error : ");
+      _SerialPrint(false, 2, (String)_buff);
+      posError = (byte)_auxVal;
+      break;
+    case 'D':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "Speed Error : ");
+      _SerialPrint(false, 2, (String)_buff);
+      speedError = (byte)_auxVal;
+      break;
+    case 'E':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "Collision Limit : ");
+      _SerialPrint(false, 2, (String)_buff);
+      limitCollision = (byte)_auxVal;
+      break;
+    case 'a':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, (String)((String)Acceleration + " " + (String)Dcolon));
+      _SerialPrint(false, 2, (String)_buff);
+      acc = _auxVal;
+      break;
+    case 'c':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "speed : ");
+      _SerialPrint(false, 2, (String)_buff);
+      speed = _auxVal;
+      break;
+    case 'e':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "position : ");
+      _SerialPrint(false, 2, (String)_buff);
+      pos = _auxVal;
+      break;
+    case 'g':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "min speed : ");
+      _SerialPrint(false, 2, (String)_buff);
+      minSpeed = _auxVal;
+      break;
+    case 'i':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "min acc : ");
+      _SerialPrint(false, 2, (String)_buff);
+      minAcc = _auxVal;
+      break;
+    case 'k':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "max speed : ");
+      _SerialPrint(false, 2, (String)_buff);
+      maxSpeed = _auxVal;
+      break;
+    case 'm':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "max acc : ");
+      _SerialPrint(false, 2, (String)_buff);
+      maxAcc = _auxVal;
+      break;
+    case 'o':  // acceleration (int16) [2]
+      _SerialPrint(false, 3, "jam : ");
+      _SerialPrint(false, 2, (String)_buff);
+      jam = _auxVal;
+      break;
+
+    default:  //FAILED CONFIG PARAMETER
+      nextState = 0;
+      _configParam = 0;
+      _SerialPrint(true, 3, "FAILED CONFIG");
+      _SerialPrint(false, 2, (String)_buff);
+      return 0;
+      break;
+  }
+
+  return _buff;
+}
+
+void serialEvent() {
+  String inputStr = "";
+  char buff;
+  int Ssize = 0;
+  bool _IsCheckAddr = false;
+  bool _IsValidAddr = false;
+  bool _Isconfig = false;
+
+  byte addr = 0;
+  while (Serial.available() && Ssize <= maxStrSize) {
+    buff = (char)Serial.read();
+    Ssize++;
+    if (buff == 'm')
+      _IsCheckAddr = true;
+    if (_IsValidAddr || _IsCheckAddr) {
+      switch (buff) {
+        case 'r':
+          //_SerialPrint(false,4,"NextState :");
+          _SerialPrint(true, 4, "Stand-By Mode");
+          nextState = 0;
+          break;
+        case 's':
+          //_SerialPrint(false,4,"NextState :");
+          _SerialPrint(true, 4, "Step Mode");
+          nextState = 1;
+          break;
+
+        case 'p':
+          //_SerialPrint(false,4,"NextState :");
+          _SerialPrint(true, 4, "Position mode");
+          nextState = 2;
+          break;
+        case 'i':
+          //_SerialPrint(false,4,"NextState :");
+          _SerialPrint(true, 4, "Status info mode");
+          nextState = 6;
+          break;
+        case 'v':
+          //_SerialPrint(false,4,"NextState :");
+          _SerialPrint(true, 4, "Speed mode");
+          nextState = S_speedControl;
+          break;
+        case '/':
+          if (!(inputStr == NULL))
+            if (_IsCheckAddr) {
+              _IsCheckAddr = false;
+              addr = (inputStr.toInt() & byteMask);
+              _IsValidAddr = (addr & motorAddr);
+              _SerialPrint(true, 4, "Valid Addr Found");
+            } else
+              auxVal = inputStr.toInt();
+          inputStr = "";
+          break;
+
+        case 'c':
+
+          _SerialPrint(true, 3, "config mode");
+          nextState = 5;
+          _Isconfig = true;
+
+          // looks the parameter to set up
+          buff = (char)Serial.read();
+          Ssize++;
+          _SerialPrint(false, 3, "set ");
+          _configParam = (byte)buff;
+
+          break;
+
+        case '\n':
+          if (!(inputStr == NULL) && !_IsCheckAddr) {
+            auxVal = inputStr.toInt();
+            buff = ' ';
+
+            if (_Isconfig) {
+              configEvent((char)_configParam, auxVal);
+              _SerialPrint(true, 3, (String)("  " + (String)auxVal));
+              _Isconfig = false;
+            }
+
+            switch (nextState) {
+              case S_stepControl:
+                stepsLeft = inputStr.toInt();
+                break;
+              case S_posControl:
+                break;
+              case S_speedControl:
+                refSpeed = auxVal;
+                auxVal = _delay2stepsS(auxVal);
+
+                break;
+              case S_config:
+                break;
+              case S_comunication:
+                break;
+            }
+            _SerialPrint(false, 4, "AuxVal stored :");
+            _SerialPrint(true, 4, (String)(auxVal));
+            _SerialPrint(false, 4, "StepLeft stored :");
+            _SerialPrint(true, 4, (String)(stepsLeft));
+          }
+          break;
+
+        default:
+         */ /*if (!isDigit(buff))
+          _SerialPrint(true,4,"Error code!");*//*
+          break;
+      }
+
+      if (buff != NULL && Ssize < maxStrSize) {
+        if (isDigit(buff)) {
+          inputStr += buff;
+          //_SerialPrint(true,4,inputStr);
+        }
+      } else {
+        inputStr = "";
+        _SerialPrint(true, 4, inputStr);
+      }
+    }
+    delayMicroseconds(serialDelay);
+  }
+
+  if (!_IsValidAddr)
+    _SerialPrint(true, 4, "Invalid Addr, cancel order");
+}  // End SerialEvent
+
+void enterState() {
+  if (nextState != state) {
+    if (finalized == true) {
+
+      _SerialPrint(false, 4, "Entering ");
+      switch (nextState) {
+        case S_standBy:
+          //StandBy-Mode
+          //noInterrupts();
+          digitalWrite(enaPin, !EnaBehavior);
+          _SerialPrint(true, 4, "Stand-By Mode");
+          _resetEnco();
+          //stepsLeft = 0;
+          break;
+        case S_stepControl:
+          //Steps-Mode
+          _SerialPrint(true, 4, "Steps Mode");
+          digitalWrite(enaPin, EnaBehavior);
+          digitalWrite(dirPin, _stepDirection);
+          _resetEnco();
+          //IsAcc = true;
+          //speed = maxSpeed;
+          _IsBatchIni = false;
+          _IsBatchEnd = false;
+          stepsLeft = auxVal;
+          iniPos = lastPos = pos = _getPos(true);
+          _steps2Done = 0;
+          _steps2Meausered = 0;
+          batchNum = 0;
+          maxBatch = min(1, stepsLeft / syncSteps);
+          break;
+        case S_posControl:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Position Mode");
+          break;
+        case S_speedControl:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Speed Control Mode");
+          digitalWrite(enaPin, EnaBehavior);
+          digitalWrite(dirPin, _stepDirection);
+          speed = maxSpeed;
+          break;
+        case S_config:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Config Mode");
+          break;
+        case S_comunication:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Communication Mode");
+          break;
+        case S_status:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Status info Mode");
+          break;
+      }
+
+      lastPos = pos;
+      state = nextState;
+      initialized = true;
+      finalized = false;
+      _SerialPrint(true, 4, "");
+    }
+  }
+}
+
+void State() {
+  if (initialized == true) {
+    running = true;
+    switch (state) {
+      case S_standBy:
+        //StandBy-Mode
+        break;
+      case S_stepControl:                    // Do a step closed loop control with colision solver
+                                             //Step Control Mode
+        if (!_IsBatchIni && !_IsBatchEnd) {  // I=0 E =0 Stand by
+          //Check step left (goto *DoBatch)
+          if (stepsLeft != 0) {                                    // DoBatch
+            _stepsBatch = StepControl(stepsLeft, _stepDirection);  //Execute Step Control
+            _IsBatchIni = 1;
+            _IsBatchEnd = 0;
+            batchNum++;
+            _SerialPrint(true, 4, "Start a new Batch");
+
+          } else {  // go to StandBy mode
+            int32_t remaindSteps = auxVal - _steps2Meausered;
+            if (remaindSteps > posError) {
+              stepsLeft = remaindSteps;
+
+            } else
+              nextState = 0;
+          }
+        } else if (_IsBatchIni && !_IsBatchEnd) {  // I=1 E=0 Running (Do Batch)
+          if (_steps2Do <= 0) {                    //it's finished the batch
+            _IsBatchEnd = 1;
+          }
+
+        } else if (_IsBatchIni && _IsBatchEnd) {  // E= 1 I=1 Pos Check Collision Solver
+          _missSteps = _MissSteps(_stepsBatch);
+          if (_missSteps > posError)
+            _IsBatchIni = 0;  // I= 0 E= 1
+          else {
+            _IsBatchEnd = 0;  // I=0 E=0
+            _IsBatchIni = 0;
+            stepsLeft -= (_stepsBatch);
+            _SerialPrint(true, 4, "No collision found");
+          }
+          //Check Colisions
+
+
+        } else {
+          if (_CollisionSolver(_stepsBatch, _stepDirection, returnSteps)) {
+            stepsLeft -= (_stepsBatch);  // Discount the asigned Steps
+            stepsLeft += (_missSteps);
+            _IsBatchEnd = 0;  // I=0 E=0
+            _IsBatchIni = 0;
+          }
+          //Fix Position
+        }
+
+        break;
+      case S_posControl:
+        PosControl(auxVal);
+        //StandBy-Mode
+        break;
+      case S_speedControl:
+        //StandBy-Mode
+        SpeedControl(auxVal);
+        break;
+      case S_config:
+        //StandBy-Mode
+        break;
+      case S_comunication:
+        //StandBy-Mode
+        break;
+      case S_status:
+        //Update-Mode
+        StatusInfo();
+        break;
+    }
+  }
+}
+
+void endState() {
+  if (nextState != state) {
+    if (initialized == true && running == true) {
+      _SerialPrint(false, 4, "Leaving ");
+      switch (state) {
+        case S_standBy:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Stand-By Mode");
+          break;
+        case S_stepControl:
+          //StandBy-Mode
+          _steps2Meausered = _enco2steps(pos);
+          _SerialPrint(true, 4, "Steps Mode");
+          digitalWrite(enaPin, !EnaBehavior);
+          _SerialPrint(false, 4, "It's done a total of steps :");
+          _SerialPrint(true, 4, (String)(_steps2Done / 2));
+          _SerialPrint(false, 4, "It's measured a total of steps :");
+          _SerialPrint(true, 4, (String)(_steps2Meausered));
+          break;
+        case S_posControl:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Position Mode");
+          break;
+        case S_speedControl:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Speed Control Mode");
+          _IsSteps2Do = false;
+          _steps2Do = 0;
+
+          break;
+        case S_config:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Config Mode");
+          break;
+        case S_comunication:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Communication Mode");
+          break;
+        case S_status:
+          //StandBy-Mode
+          _SerialPrint(true, 4, "Status Info Mode");
+          break;
+      }
+      _SerialPrint(true, 4, "");
+
+      initialized = false;
+      running = false;
+      finalized = true;
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  _SerialPrint(true, 4, "Start ");
+
+#ifdef IncEnco  // Setup the Incremental encoder
+
+  _SerialPrint(true, 4, "Incremental Encoder Version ");
+  pinMode(encoA_Pin, INPUT);
+  pinMode(encoB_Pin, INPUT);
+  pinMode(encoN_Pin, INPUT);
+
+  attachInterrupt(digitalPinToInterrupt(encoA_Pin), _AEncoHandler, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(encoB_Pin), _BEncoHandler, CHANGE);
+
+#endif
+
+#ifdef _AS5600  // Setup the AS5600 encoder
+
+  _SerialPrint(true, 3, __FILE__);
+  _SerialPrint(false, 3, "AS5600_LIB_VERSION: ");
+  _SerialPrint(true, 3, AS5600_LIB_VERSION);
+
+  //  ESP32
+  //  as5600.begin(14, 15);
+  //  AVR
+  as5600.begin(4);                         //  set direction pin.
+  as5600.setDirection(AS5600_CLOCK_WISE);  // default, just be explicit.
+
+  _SerialPrint(true, 4, (String)(as5600.getAddress()));
+
+  //as5600.setAddress(0x40);  // AS5600L only
+
+  int b = as5600.isConnected();
+  _SerialPrint(false, 3, "Connect: ");
+  _SerialPrint(true, 3, (String)(b));
+#endif
+
+  pinMode(startSwitchPin, INPUT);
+  pinMode(endSwitchPin, INPUT);
+  pinMode(dirPin, OUTPUT);
+  pinMode(enaPin, OUTPUT);
+  pinMode(stepPin, OUTPUT);
+
+  Timer1.initialize(speed);
+  Timer1.attachInterrupt(_advanceStep);
+
+  delay(1000);
+}
+
+void loop() {
+  static uint32_t time = 0;
+  enterState();
+  State();
+  endState();
+  time = micros();
+  deltaTime = lastTime - time;
+  if (deltaTime < refTime) {
+    lastTime = time;
+    //delayMicroseconds(refTime-deltaTime);
+  } else  // Error timeOut exeeded.
+    _SerialPrint(true, 4, "Time exeeded");
+}
+*/
+// -- END OF FILE --

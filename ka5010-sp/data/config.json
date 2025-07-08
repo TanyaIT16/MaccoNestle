@@ -1,0 +1,26 @@
+{
+    "ssid":"MOVISTAR_4208",
+    "password":"m22KgLdyy2hUxbX5Y2Ca",
+    "mqtt_server":"192.168.1.39",
+    "client_name":"sp_empty_left_down",
+    "kiosk_name":"kiosk",
+    "id": 1,
+    "bottles": [
+    {"bottle_name": "vodka", "pos": 0, "isBottle": true, "isEmpty": false},
+    {"bottle_name": "gin", "pos": 1, "isBottle": true, "isEmpty": false},
+    {"bottle_name": "rum", "pos": 2, "isBottle": true, "isEmpty": false},
+    {"bottle_name": "tequila", "pos": 3, "isBottle": true, "isEmpty": false},
+    {"bottle_name": "whisky", "pos": 4, "isBottle": true, "isEmpty": false},
+    {"bottle_name": "vermouth", "pos": 5, "isBottle": true, "isEmpty": false},
+    {"bottle_name": "triple_sec", "pos": 6, "isBottle": true, "isEmpty": false},
+    {"bottle_name": "brandy", "pos": 7, "isBottle": true, "isEmpty": false}
+    ],
+    "period_mqtt_loop":"100",
+    "period_state_pub":"15000",
+    "period_sensor_pub":"15000",
+    "max_speed":"1500",
+    "max_acc":"200",
+    "disable_after_moving":"true",
+    "take_platform_delay":"5000",
+    "serve_platform_delay":"8000"
+}

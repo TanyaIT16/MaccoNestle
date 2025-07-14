@@ -20,6 +20,7 @@
     "period_sensor_pub":"15000",
     "max_speed":"1500",
     "max_acc":"200",
+    "turn_direction":"1",
     "disable_after_moving":"true",
     "take_platform_delay":"5000",
     "serve_platform_delay":"8000"

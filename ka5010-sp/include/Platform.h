@@ -22,6 +22,7 @@ class Platform {
         Platform();
 
         void attachPlatform(int _id, int _n_cups, int _turn_direction, int _max_speed, int _max_acc, int _disable_after_moving);
+        void begin();
 
         //Methods
         void configureDriver();

@@ -52,7 +52,6 @@
 #define ROTATE 3
 #define REFILL 4
 #define ROTATING_TO_LIMIT 6
-#
 
 // define sound speed in cm/uS for ultrasonic sensor
 #define SOUND_SPEED 0.034
@@ -170,22 +169,6 @@ unsigned long int time_last_msg_state = 0;
 unsigned long int period_sensor_pub; // Periodic time to publish sensor information [ms]
 unsigned long int time_last_msg_sensor = 0;
 
-//Bottle platform
-const int NUM_BOTTLES = 8; // Number of bottles on the platform
-typedef struct {
-    String bottle_name; // Bottle name
-    int pos;             // Bottle position on the platform (0-7)
-    bool isBottle;       // Is there a bottle on this position?
-    bool isEmpty;        // Is this bottle empty?
-} Bottle;
-
-Bottle bottles[NUM_BOTTLES];
-int current_bottle_position = 0; // Current position of the platform
-
-// Bottle request
-String requested_bottle = ""; // Bottle requested by the user
-bool bottle_request_pending = false; // Is there a bottle request pending?
-
 ///////////////////////////////////////
 
 // Define a stepper and the pins it will use
@@ -254,11 +237,3 @@ void onUpdateProgress(int progress, int totalt);
 void IRAM_ATTR stopMotor();
 
 void configureDriver();
-
-int getShortestRotation(int from_position, int to_position, int total);
-
-void rotateToLimitSwitchInit();
-
-void refillCups();
-
-void rotateToLimit();

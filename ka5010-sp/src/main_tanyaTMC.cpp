@@ -124,10 +124,39 @@ void setup()
     // Move one complete rev at startup just in case some cups where not completely served before
     // shutdown
     Serial.println("Commanding one whole rev turn just in case there are cups left to be served");
-    if(id==1 || id==3)
+    if (id == 1 || id == 3) 
     {
-        rotateToLimitSwitchInit();
-    }
+        // Comienza el movimiento de 360 grados
+        if (digitalRead(LIMIT_SWITCH) == HIGH) {
+            stepper.moveTo(-(stepper.currentPosition()+steps_per_revolution*(45)/360*turn_direction));
+            while (stepper.distanceToGo() != 0) 
+            {
+                stepper.run();
+            }
+        }
+        limitReached = false; // Reinicia el estado del límite
+        stepper.move((steps_per_revolution*turn_direction));
+        // Ejecuta el movimiento mientras no se alcance el límite
+        while (!limitReached) {
+            stepper.run(); // Ejecuta el movimiento paso a paso
+
+            // Verifica si el motor ha alcanzado su objetivo
+            if (stepper.distanceToGo() == 0) {
+                Serial.println("Motor completed the movement without reaching the limit switch.");
+                break; // Sal del bucle si el motor termina el movimiento
+            }
+        }
+
+        // Si se alcanzó el límite, detén el motor
+        if (limitReached) {
+            stepper.stop();
+            Serial.println("Limit switch reached. Stopping motor.");
+            digitalWrite(driver_en, HIGH);
+
+            // Reinicia el estado del límite
+            limitReached = false;
+        }
+    }   
     else 
     {
         // Lógica existente para otros IDs
@@ -137,6 +166,7 @@ void setup()
         }
         cup = true;
     }
+
 
     Serial.println("Whole rev finnished");
 
@@ -364,13 +394,68 @@ void loop()
 
                     if(refill_button == 1 && previous_refill_button == 0) { // Asumiendo que LOW es pulsado
                         Serial.println("Refill button pressed. Exiting REFILL state.");
-                        refillCups();
+                        cups_on_platform = 8; // Reset cups on platform
+                        if(disable_after_moving) digitalWrite(driver_en,LOW);
+                        // Configure TMC2209 driver
+                        configureDriver();
+                        limitReached = false;
+                        // Move stepper 360 degrees
+                        stepper.moveTo(stepper.currentPosition() + (steps_per_revolution*turn_direction));  
+                        //current_command = "moveorder";
+                        start_time = millis();
                         // Update state
                         state = ROTATING_TO_LIMIT;
                         sendState(state);
                         Serial.println("New state " + getStateString(state));
                     }
 
+
+                    /*
+                    if (refill_button == 1 && previous_refill_button == 0) {
+                        // Verify there are less than 8 cups on the platform
+                        if (cups_on_platform < 8) {
+                            //state = REFILL;
+                            sendState(state);
+                            Serial.println("New state " + getStateString(state));
+                
+                            // Increment the number of cups on the platform
+                            cups_on_platform++;
+                            Serial.print("Number of cups: ");
+                            Serial.println(cups_on_platform);
+
+                            //current_command = "movecup";
+
+                
+                            // Configure TMC2209 driver
+                            if(disable_after_moving) digitalWrite(driver_en,LOW);
+                            configureDriver();
+                            // Move stepper 45 degrees
+                            stepper.move(steps_per_revolution * (45) / 360 * turn_direction);
+                
+                        }
+
+                        // Check if all cups have been placed
+                        if(cups_on_platform == 8)
+                        {   
+
+                            // Configure TMC2209 driver
+                            if(disable_after_moving) digitalWrite(driver_en,LOW);
+                            configureDriver();
+                            limitReached = false;
+                            // Move stepper 360 degrees
+                            stepper.moveTo(stepper.currentPosition() + (steps_per_revolution*turn_direction));  
+                            //current_command = "moveorder";
+                            start_time = millis();
+                            // Update state
+                            state = ROTATING_TO_LIMIT;
+                            sendState(state);
+                            Serial.println("New state " + getStateString(state));
+                            
+                        }
+                            
+                    }
+                    
+                    */
                     // Update previous refill button state
                     previous_refill_button = refill_button;
                     refill_button = 0;
@@ -379,9 +464,36 @@ void loop()
                 break;
             
             case ROTATING_TO_LIMIT:
-            
-                rotateToLimit();
+                    stepper.run();
+                    // Check if the limit switch has been reached
+                    if(limitReached)
+                    {
+                        // Stop the motor
+                        stepper.stop();
+                        state = READY;
+                        sendState(state);
+                        Serial.println("New state " + getStateString(state));
+                        if(disable_after_moving) digitalWrite(driver_en, HIGH);
+                        limitReached = false;
+                    }
+                    
+                    // Check if the motor has completed 360° without reaching the limit switch, enter ERROR
+                    if (!stepper.isRunning() && !limitReached) {
+                        Serial.println("ERROR: Motor completed 360° without reaching limit switch.");
+                        state = ERROR;
+                        sendState(state);
+                        Serial.println("New state " + getStateString(state));
+                    }
 
+                    // If the motor takes too long to reach the limit switch, enter ERROR
+                    if (millis() - start_time > 20000) {  // 20 seconds
+                        Serial.println("ERROR: Motor took too long to reach limit switch.");
+                        stepper.stop();
+                        state = ERROR;
+                        sendState(state);
+                        Serial.println("New state " + getStateString(state));
+                    }
+                    
                 break;
             
 
@@ -680,15 +792,67 @@ void loop()
                     sendState(state);
                     Serial.println("New state " + getStateString(state));
 
-                   if(refill_button == 1 && previous_refill_button == 0) { // Asumiendo que LOW es pulsado
+                    if(refill_button == 1 && previous_refill_button == 0) { // Asumiendo que LOW es pulsado
                         Serial.println("Refill button pressed. Exiting REFILL state.");
-                        refillCups();
+                        cups_on_platform = 10; // Reset cups on platform
+                        if(disable_after_moving) digitalWrite(driver_en,LOW);
+                        // Configure TMC2209 driver
+                        configureDriver();
+                        limitReached = false;
+                        // Move stepper 360 degrees
+                        stepper.moveTo(stepper.currentPosition() + (steps_per_revolution*turn_direction));  
+                        //current_command = "moveorder";
+                        start_time = millis();
                         // Update state
                         state = ROTATING_TO_LIMIT;
                         sendState(state);
                         Serial.println("New state " + getStateString(state));
                     }
 
+                    /*
+                    if (refill_button == 1 && previous_refill_button == 0) {
+                        // Verify if there are less than 10 cups on the platform
+                        if (cups_on_platform < 10) {
+                            //state = REFILL;
+                            sendState(state);
+                            Serial.println("New state " + getStateString(state));
+                
+                            // Increment the number of cups on the platform
+                            cups_on_platform++;
+                            Serial.print("Number of cups: ");
+                            Serial.println(cups_on_platform);
+
+                            //current_command = "movecup";
+
+                
+                            // Configure TMC2209 driver
+                            if(disable_after_moving) digitalWrite(driver_en,LOW);
+                            configureDriver();
+                            // Move stepper 36 degrees
+                            stepper.move(steps_per_revolution * (36) / 360 * turn_direction);
+                
+                        }
+
+                        if(cups_on_platform == 10)
+                        {
+                            // Configure TMC2209 driver
+                            if(disable_after_moving) digitalWrite(driver_en,LOW);
+                            configureDriver();
+                            limitReached = false;
+                            // Move stepper 360 degrees
+                            stepper.moveTo(stepper.currentPosition() + (steps_per_revolution*turn_direction));  
+                            //current_command = "moveorder";
+                            start_time = millis();
+                            // Update state
+                            state = ROTATING_TO_LIMIT;
+                            sendState(state);
+                            Serial.println("New state " + getStateString(state));
+                            
+                        }
+                            
+                    }
+            
+                    */
                     // Update previous refill button state
                     previous_refill_button = refill_button;
                     refill_button = 0;
@@ -696,7 +860,34 @@ void loop()
                 break;
 
             case ROTATING_TO_LIMIT:
-                    rotateToLimit();
+                    stepper.run();
+                    // Check if the limit switch has been reached
+                    if(limitReached)
+                    {
+                        stepper.stop();
+                        state = READY;
+                        sendState(state);
+                        Serial.println("New state " + getStateString(state));
+                        if(disable_after_moving) digitalWrite(driver_en, HIGH);
+                        limitReached = false;
+                    }
+                        // Check if the motor has completed 360° without reaching the limit switch, enter ERROR
+                    if (!stepper.isRunning() && !limitReached) {
+                        Serial.println("ERROR: Motor completed 360° without reaching limit switch.");
+                        state = ERROR;
+                        sendState(state);
+                        Serial.println("New state " + getStateString(state));
+                    }
+
+                    // If the motor takes too long to reach the limit switch, enter ERROR
+                    if (millis() - start_time > 20000) {  // 20 seconds
+                        Serial.println("ERROR: Motor took too long to reach limit switch.");
+                        stepper.stop();
+                        state = ERROR;
+                        sendState(state);
+                        Serial.println("New state " + getStateString(state));
+                    }
+                    
                 break;
 
             default:
@@ -707,11 +898,6 @@ void loop()
         }
     }
 
-    if(id==4)
-    {
-        // State machine
-        
-    }
 
      // Check if movement is due
     if(stepper.isRunning())
@@ -797,18 +983,6 @@ void callback(char * topic,byte * message, unsigned int length)
 
             return;
         }*/
-
-        // Busca si el comando es el nombre de una botella
-        for(int i=0; i<NUM_BOTTLES; i++) {
-            if(bottles[i].bottle_name == command && bottles[i].isBottle) {
-                requested_bottle = command;
-                bottle_request_pending = true;
-                Serial.print("Bottle request received: ");
-                Serial.println(command);
-                return;
-            }
-        }
-        Serial.println("Bottle not found or not present!");
 
         // Differentiate commands
         if(command == "1")
@@ -1350,20 +1524,9 @@ void loadConfig()
                     Serial.print("Using default config for serve_platform_delay: ");
                     Serial.println(serve_platform_delay);
                 }
-
-                if(config.containsKey("bottles")) {
-                JsonArray arr = config["bottles"].as<JsonArray>();
-                for(int i=0; i<arr.size() && i<NUM_BOTTLES; i++) {
-                    bottles[i].bottle_name = arr[i]["name"].as<String>();
-                    bottles[i].pos = arr[i]["position"];
-                    bottles[i].isBottle = true;
-                    bottles[i].isEmpty = false;
-                }
-                Serial.println("Loaded bottles configuration:");}
             }
         }
     }
-
 
     // Unmount filesystem
     SPIFFS.end();
@@ -1532,108 +1695,4 @@ void configureDriver()
     driver.pwm_autograd(true);
     driver.en_spreadCycle(false);
     driver.intpol(true);
-}
-
-int getShortestRotation(int from_position, int to_position, int total)
-{
-    int steps_clockwise = (to_position - from_position + total) % total; // clockwise steps
-    int steps_counterclockwise =(from_position - to_position + total) % total; // counterclockwise steps
-    return (steps_clockwise <= steps_counterclockwise) ? steps_clockwise : -steps_counterclockwise;
-}
-
-void rotateToLimitSwitchInit()
-{
-    // Comienza el movimiento de 360 grados
-    if (digitalRead(LIMIT_SWITCH) == HIGH) {
-        stepper.moveTo(-(stepper.currentPosition()+steps_per_revolution*(45)/360*turn_direction));
-        while (stepper.distanceToGo() != 0) 
-        {
-            stepper.run();
-        }
-    }
-    limitReached = false; // Reinicia el estado del límite
-    stepper.move((steps_per_revolution*turn_direction));
-    // Ejecuta el movimiento mientras no se alcance el límite
-    while (!limitReached) {
-        stepper.run(); // Ejecuta el movimiento paso a paso
-
-        // Verifica si el motor ha alcanzado su objetivo
-        if (stepper.distanceToGo() == 0) {
-            Serial.println("Motor completed the movement without reaching the limit switch.");
-            break; // Sal del bucle si el motor termina el movimiento
-        }
-    }
-
-    // Si se alcanzó el límite, detén el motor
-    if (limitReached) {
-        stepper.stop();
-        Serial.println("Limit switch reached. Stopping motor.");
-        digitalWrite(driver_en, HIGH);
-
-        // Reinicia el estado del límite
-        limitReached = false;
-    } 
-
-}
-
-void refillCups()
-{
-    if(id==1)
-    {
-        cups_on_platform = 8; // Reset cups on platform
-    }
-    else if(id==3)
-    {
-        cups_on_platform = 10; // Reset cups on platform
-    }
-
-    if(disable_after_moving) digitalWrite(driver_en,LOW);
-    // Configure TMC2209 driver
-    configureDriver();
-
-    // Libera el final de carrera si está pulsado
-    if (digitalRead(LIMIT_SWITCH) == HIGH) {
-        stepper.moveTo(stepper.currentPosition() - (steps_per_revolution * 0.1 * turn_direction));
-        while (stepper.distanceToGo() != 0) {
-            stepper.run();
-        }
-    }
-
-    limitReached = false;
-    // Move stepper 360 degrees
-    stepper.moveTo(stepper.currentPosition() + (steps_per_revolution*turn_direction));  
-    //current_command = "moveorder";
-    start_time = millis();
-
-}
-
-void rotateToLimit()
-{
-    stepper.run();
-    // Check if the limit switch has been reached
-    if(limitReached)
-    {
-        stepper.stop();
-        state = READY;
-        sendState(state);
-        Serial.println("New state " + getStateString(state));
-        if(disable_after_moving) digitalWrite(driver_en, HIGH);
-        limitReached = false;
-    }
-        // Check if the motor has completed 360° without reaching the limit switch, enter ERROR
-    if (!stepper.isRunning() && !limitReached) {
-        Serial.println("ERROR: Motor completed 360° without reaching limit switch.");
-        state = ERROR;
-        sendState(state);
-        Serial.println("New state " + getStateString(state));
-    }
-
-    // If the motor takes too long to reach the limit switch, enter ERROR
-    if (millis() - start_time > 20000) {  // 20 seconds
-        Serial.println("ERROR: Motor took too long to reach limit switch.");
-        stepper.stop();
-        state = ERROR;
-        sendState(state);
-        Serial.println("New state " + getStateString(state));
-    }
 }

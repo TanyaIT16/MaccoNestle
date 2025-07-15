@@ -351,6 +351,24 @@ void loop() {
         }
     }
 
+    // Keep stepper running outside of the state machine
+    if(platform.stepper.isRunning()) {
+        bool still_running = platform.stepper.run();
+        if(!still_running) {
+            Serial.println("Movement finished");
+            if(platform.disable_after_moving) digitalWrite(Platform::driver_en, HIGH);
+
+            if(current_command != "none" && platform.last_distance_to_go == 0) {
+                Serial.println("Finished command " + current_command);
+
+                if(current_command == "moveorder" && platform.id == 1) platform.cups_on_platform = 3;
+                if(current_command == "moveorder" && platform.id == 2) platform.cups_on_platform = 0;
+
+                sendFeedback(current_command, "FINISHED");
+                current_command = "none";
+            }
+        }
+    }
 
 }
 

@@ -5,7 +5,7 @@
     "client_name":"sp_empty_left_down",
     "kiosk_name":"kiosk",
     "id": 1,
-    "n_cups": 8,
+    "n_cups": 2,
     "bottles": [
     {"bottle_name": "vodka", "pos": 0, "isBottle": true, "isEmpty": false},
     {"bottle_name": "gin", "pos": 1, "isBottle": true, "isEmpty": false},

@@ -284,7 +284,7 @@ void loop() {
                     // Refill cups
                     platform.startRefillCycle();
 
-                    state = ROTATING_TO_LIMIT;
+                    state = CHECK;
                     sendState(state);
                     Serial.println("New state " + getStateString(state));
 

@@ -17,14 +17,13 @@
 
 void setup() {
 
-    platform.attachPlatform(config.id, config.n_cups, config.turn_direction, config.max_speed, config.max_acc, config.disable_after_moving);
-    platform.begin();
-    
     Serial.begin(9600);
     SERIAL_PORT.begin(9600);
     delay(1000);
 
     loadConfig();
+    platform.attachPlatform(config.id, config.n_cups, config.turn_direction, config.max_speed, config.max_acc, config.disable_after_moving);
+    platform.begin();
 
     WifiConnection wifi(ssid,password,wifi_timeout);
     wifi.wifiConnect();
@@ -378,10 +377,9 @@ void loadConfig()
         }
         else
         {
-            JsonDocument config;
+            JsonDocument doc;
 
-            DeserializationError result = deserializeJson(config, configFile);
-
+            DeserializationError result = deserializeJson(doc, configFile);
             if(result.c_str() != "Ok")
             {
                 Serial.print(F("Deserialization of the config json failed with code "));
@@ -392,14 +390,14 @@ void loadConfig()
             else
             {
                 // Get a reference to the root object
-                JsonObject obj = config.as<JsonObject>();
+                JsonObject obj = doc.as<JsonObject>();
 
                 // Loop through all the key-value pairs in obj
                 Serial.println("Available keys in json obj: ");    // is a JsonString
                 for(JsonPair p : obj)
                     Serial.println(p.key().c_str());    // is a JsonString
 
-                ssid = config["ssid"].as<String>();
+                ssid = doc["ssid"].as<String>();
                 if(ssid != nullptr)
                 {
                     Serial.print("Loaded config for ssid: ");
@@ -411,7 +409,7 @@ void loadConfig()
                     exit(1);
                 }
 
-                password = config["password"].as<String>();
+                password = doc["password"].as<String>();
                 if(password != nullptr)
                 {
                     Serial.print("Loaded config for wifi password: ");
@@ -427,7 +425,7 @@ void loadConfig()
                     Serial.println(password);
                 }
 
-                mqtt_server = config["mqtt_server"].as<String>();
+                mqtt_server = doc["mqtt_server"].as<String>();
                 if(mqtt_server != nullptr)
                 {
                     Serial.print("Loaded config for mqtt_server: ");
@@ -443,7 +441,7 @@ void loadConfig()
                     Serial.println(mqtt_server);
                 }
 
-                client_name = config["client_name"].as<String>();
+                client_name = doc["client_name"].as<String>();
                 if(client_name != "null")
                 {
                     Serial.print("Loaded config for client_name: ");
@@ -459,7 +457,7 @@ void loadConfig()
                     Serial.println(client_name);
                 }
 
-                kiosk_name = config["kiosk_name"].as<String>();
+                kiosk_name = doc["kiosk_name"].as<String>();
                 if(kiosk_name != "null")
                 {
                     Serial.print("Loaded config for kiosk_name: ");
@@ -475,7 +473,7 @@ void loadConfig()
                     Serial.println(kiosk_name);
                 }
 
-                platform.id = config["id"];
+                platform.id = doc["id"];
                 if(platform.id != 0)
                 {
                     Serial.print("Loaded config for id: ");
@@ -487,7 +485,11 @@ void loadConfig()
                     platform.id = 1;
                 }
 
-                period_mqtt_loop = config["period_mqtt_loop"];
+                config.n_cups = doc["n_cups"] | 8;
+                Serial.print("Loaded config for n_cups: ");
+                Serial.println(config.n_cups);
+
+                period_mqtt_loop = doc["period_mqtt_loop"];
                 if(period_mqtt_loop != 0)
                 {
                     Serial.print("Loaded config for period_mqtt_loop: ");
@@ -503,7 +505,7 @@ void loadConfig()
                     Serial.println(period_mqtt_loop);
                 }
 
-                period_state_pub = config["period_state_pub"];
+                period_state_pub = doc["period_state_pub"];
                 if(period_state_pub != 0)
                 {
                     Serial.print("Loaded config for period_state_pub: ");
@@ -519,7 +521,7 @@ void loadConfig()
                     Serial.println(period_state_pub);
                 }
 
-                period_sensor_pub = config["period_sensor_pub"];
+                period_sensor_pub = doc["period_sensor_pub"];
                 if(period_sensor_pub != 0)
                 {
                     Serial.print("Loaded config for period_sensor_pub: ");
@@ -535,7 +537,7 @@ void loadConfig()
                     Serial.println(period_sensor_pub);
                 }
 
-                platform.max_speed = config["max_speed"];
+                platform.max_speed = doc["max_speed"];
                 if(platform.max_speed != 0)
                 {
                     Serial.print("Loaded config for max_speed: ");
@@ -551,7 +553,7 @@ void loadConfig()
                     Serial.println(platform.max_speed);
                 }
 
-                platform.max_acc = config["max_acc"];
+                platform.max_acc = doc["max_acc"];
                 if(platform.max_acc != 0)
                 {
                     Serial.print("Loaded config for max_acc: ");
@@ -566,7 +568,7 @@ void loadConfig()
                     Serial.print("Using default config for max_acc: ");
                     Serial.println(platform.max_acc);
                 }
-                platform.turn_direction = config["turn_direction"];
+                platform.turn_direction = doc["turn_direction"];
                 if(platform.turn_direction != 0)
                 {
                     Serial.print("Loaded config for turn_direction: ");
@@ -589,7 +591,7 @@ void loadConfig()
                     Serial.println(platform.turn_direction);
                 }
 
-                String disable = config["disable_after_moving"].as<String>();
+                String disable = doc["disable_after_moving"].as<String>();
                 if(disable != "null")
                 {
                     if(disable == "true")
@@ -610,7 +612,7 @@ void loadConfig()
                     Serial.println(platform.disable_after_moving);
                 }
 
-                platform.take_platform_delay = config["take_platform_delay"];
+                platform.take_platform_delay = doc["take_platform_delay"];
                 if (platform.take_platform_delay != 0)
                 {
                     Serial.print("Loaded config for take_platform_delay: ");
@@ -624,7 +626,7 @@ void loadConfig()
                     Serial.println(platform.take_platform_delay);
                 }
 
-                platform.serve_platform_delay = config["serve_platform_delay"];
+                platform.serve_platform_delay = doc["serve_platform_delay"];
                 if (platform.serve_platform_delay != 0)
                 {
                 
@@ -639,8 +641,8 @@ void loadConfig()
                     Serial.println(platform.serve_platform_delay);
                 }
 
-                if (config["bottles"].is<JsonArray>()) {
-                JsonArray arr = config["bottles"].as<JsonArray>();
+                if (doc["bottles"].is<JsonArray>()) {
+                JsonArray arr = doc["bottles"].as<JsonArray>();
                 for(int i=0; i<arr.size() && i<NUM_BOTTLES; i++) {
                     bottles[i].bottle_name = arr[i]["name"].as<String>();
                     bottles[i].pos = arr[i]["position"];
@@ -668,6 +670,7 @@ void useDefaultConfig()
     client_name = "sp_empty_left_down";
     kiosk_name = "kiosk";
     platform.id = 1;
+    config.n_cups = 8;
     period_mqtt_loop = 100;      // [ms]
     period_state_pub = 15000;    // [ms]
     period_sensor_pub = 15000;

@@ -18,6 +18,7 @@ void Platform::attachPlatform(int _id, int _n_cups, int _turn_direction, int _ma
     max_speed = _max_speed;
     max_acc = _max_acc;
     disable_after_moving = _disable_after_moving;
+    cups_on_platform = n_cups;
 
     // Set the limit distance for stable cup detection
     limitDistance = 10.0; // Example value in cm

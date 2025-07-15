@@ -76,8 +76,8 @@ float Platform::readUltrasonicSensor(int triggerPin, int echoPin) {
 
     // Read the echo pin
     long duration = pulseIn(echoPin, HIGH);
-    Serial.print("Ultrasonic duration: ");
-    Serial.println(duration);
+    //Serial.print("Ultrasonic duration: ");
+    //Serial.println(duration);
 
     // Calculate the distance in cm
     float distanceCm = (duration * SOUND_SPEED) / 2.0; // Divide by 2 for round trip

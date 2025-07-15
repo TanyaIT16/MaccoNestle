@@ -13,7 +13,7 @@
 #include "PlatformStateMachine.h"
 #include "Platform.h"
 
-
+Platform platform;
 
 void setup() {
 
@@ -21,16 +21,15 @@ void setup() {
     SERIAL_PORT.begin(9600);
     delay(1000);
 
-    // Platform instance
-    Platform platform;
-
     loadConfig();
 
     platform.attachPlatform(config.id, config.n_cups, config.turn_direction, config.max_speed, config.max_acc, config.disable_after_moving);
+    
     platform.begin();
 
 
-    //Serial.println("DIRECTION: " + String(platform.turn_direction));
+
+    //Serial.println("DIRECTION: " + String(config.turn_direction));
 
     Serial.println("Registering ISR for limit switch...");
     void (*isrRef)() = Platform::stopMotor;
@@ -90,8 +89,8 @@ void setup() {
 
     while (!Platform::limitReached && platform.stepper.isRunning()) {
         platform.stepper.run();
-        Serial.print("Remaining steps: ");
-        Serial.println(platform.stepper.distanceToGo());
+        //Serial.print("Remaining steps: ");
+        //Serial.println(platform.stepper.distanceToGo());
 
         if (millis() - platform.start_time > 20000) {
             Serial.println("Timeout: Could not find limit switch during initial rotation.");
@@ -514,7 +513,7 @@ void loadConfig()
                 }
 
                 config.id = doc["id"];
-                if(platform.id != 0)
+                if(config.id != 0)
                 {
                     Serial.print("Loaded config for id: ");
                     Serial.println(config.id);
@@ -581,7 +580,7 @@ void loadConfig()
                 if(config.max_speed != 0)
                 {
                     Serial.print("Loaded config for max_speed: ");
-                    Serial.println(platform.max_speed);
+                    Serial.println(config.max_speed);
                 }
                 else
                 {
@@ -594,7 +593,7 @@ void loadConfig()
                 }
 
                 config.max_acc = doc["max_acc"];
-                if(platform.max_acc != 0)
+                if(config.max_acc != 0)
                 {
                     Serial.print("Loaded config for max_acc: ");
                     Serial.println(config.max_acc);
@@ -710,14 +709,14 @@ void useDefaultConfig()
     mqtt_server = "192.168.1.39";
     client_name = "sp_empty_left_down";
     kiosk_name = "kiosk";
-    platform.id = 1;
+    config.id = 1;
     config.n_cups = 8;
     period_mqtt_loop = 100;      // [ms]
     period_state_pub = 15000;    // [ms]
     period_sensor_pub = 15000;
-    platform.max_speed = 1500;               // [rev/min]
-    platform.max_acc = 200;                 // [rev/min2]
-    platform.disable_after_moving = false;
+    config.max_speed = 1500;               // [rev/min]
+    config.max_acc = 200;                 // [rev/min2]
+    config.disable_after_moving = false;
     platform.take_platform_delay = 5000;
     platform.serve_platform_delay = 8000;
 

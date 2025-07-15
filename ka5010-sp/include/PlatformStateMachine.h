@@ -53,7 +53,7 @@ typedef struct {
 PlatformConfig config;
 
 // Platform instance
-Platform platform;
+extern Platform platform;
 
 
 // WiFi Config

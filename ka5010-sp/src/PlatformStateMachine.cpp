@@ -18,6 +18,7 @@
 void setup() {
 
     platform.attachPlatform(config.id, config.n_cups, config.turn_direction, config.max_speed, config.max_acc, config.disable_after_moving);
+    platform.begin();
     
     Serial.begin(9600);
     SERIAL_PORT.begin(9600);
@@ -609,32 +610,33 @@ void loadConfig()
                     Serial.println(platform.disable_after_moving);
                 }
 
-                take_platform_delay = config["take_platform_delay"];
-                if (take_platform_delay != 0)
+                platform.take_platform_delay = config["take_platform_delay"];
+                if (platform.take_platform_delay != 0)
                 {
                     Serial.print("Loaded config for take_platform_delay: ");
-                    Serial.println(take_platform_delay);
+                    Serial.println(platform.take_platform_delay);
                 }
                 else
                 {
                     Serial.println("Could not find take_platform_delay config");
-                    take_platform_delay = 5000; // Valor predeterminado
+                    platform.take_platform_delay = 5000; // Valor predeterminado
                     Serial.print("Using default config for take_platform_delay: ");
-                    Serial.println(take_platform_delay);
+                    Serial.println(platform.take_platform_delay);
                 }
 
-                serve_platform_delay = config["serve_platform_delay"];
-                if (serve_platform_delay != 0)
+                platform.serve_platform_delay = config["serve_platform_delay"];
+                if (platform.serve_platform_delay != 0)
                 {
+                
                     Serial.print("Loaded config for serve_platform_delay: ");
-                    Serial.println(serve_platform_delay);
+                    Serial.println(platform.serve_platform_delay);
                 }
                 else
                 {
                     Serial.println("Could not find serve_platform_delay config");
-                    serve_platform_delay = 8000; // Valor predeterminado
+                    platform.serve_platform_delay = 8000; // Valor predeterminado
                     Serial.print("Using default config for serve_platform_delay: ");
-                    Serial.println(serve_platform_delay);
+                    Serial.println(platform.serve_platform_delay);
                 }
 
                 if (config["bottles"].is<JsonArray>()) {
@@ -672,8 +674,8 @@ void useDefaultConfig()
     platform.max_speed = 1500;               // [rev/min]
     platform.max_acc = 200;                 // [rev/min2]
     platform.disable_after_moving = false;
-    take_platform_delay = 5000;
-    serve_platform_delay = 8000;
+    platform.take_platform_delay = 5000;
+    platform.serve_platform_delay = 8000;
 
 
     Serial.print("ssid ");

@@ -21,9 +21,27 @@ void Platform::attachPlatform(int _id, int _n_cups, int _turn_direction, int _ma
 
     // Set the limit distance for stable cup detection
     limitDistance = 10.0; // Example value in cm
-    disable_after_moving = true; // Default value
 }
 
+void Platform::begin() {
+    // Configure GPIOs
+    pinMode(driver_pul, OUTPUT);
+    pinMode(driver_dir, OUTPUT);
+    pinMode(driver_en, OUTPUT);
+
+    pinMode(trigPin, OUTPUT);
+    pinMode(echoPin, INPUT);
+
+    pinMode(limitSwitchPin, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(limitSwitchPin), Platform::stopMotor, RISING);
+
+    // Driver and stepper setup
+    configureDriver();
+    stepper.setMaxSpeed(max_speed);
+    stepper.setAcceleration(max_acc);
+
+    digitalWrite(driver_en, LOW); // Enable driver
+}
 
 // Configure the TMC2209 driver
 void Platform::configureDriver() {
@@ -168,4 +186,8 @@ Platform::RotationStatus Platform::rotateToLimit(){
     }
 
     return ROTATING;
+}
+
+void IRAM_ATTR Platform::stopMotor() {
+    limitReached = true;
 }

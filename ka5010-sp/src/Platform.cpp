@@ -34,7 +34,7 @@ void Platform::begin() {
     pinMode(echoPin, INPUT);
 
     pinMode(limitSwitchPin, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(limitSwitchPin), Platform::stopMotor, RISING);
+    attachInterrupt(digitalPinToInterrupt(Platform::limitSwitchPin), Platform::stopMotor, RISING);
 
     // Driver and stepper setup
     configureDriver();

@@ -21,9 +21,23 @@ void setup() {
     SERIAL_PORT.begin(9600);
     delay(1000);
 
+    // Platform instance
+    Platform platform;
+
     loadConfig();
+
     platform.attachPlatform(config.id, config.n_cups, config.turn_direction, config.max_speed, config.max_acc, config.disable_after_moving);
     platform.begin();
+
+
+    //Serial.println("DIRECTION: " + String(platform.turn_direction));
+
+    Serial.println("Registering ISR for limit switch...");
+    void (*isrRef)() = Platform::stopMotor;
+    Serial.printf("ISR reference address: %p\n", isrRef);
+    attachInterrupt(digitalPinToInterrupt(Platform::limitSwitchPin), isrRef, RISING);
+    Serial.println("ISR registered successfully.");
+
 
     WifiConnection wifi(ssid,password,wifi_timeout);
     wifi.wifiConnect();
@@ -56,6 +70,7 @@ void setup() {
     platform.configureDriver();
     platform.stepper.setMaxSpeed(platform.max_speed);
     platform.stepper.setAcceleration(platform.max_acc);
+
 
     if (digitalRead(Platform::limitSwitchPin) == HIGH) {
         Serial.println("Limit switch is pressed at startup. Moving backwards to release.");
@@ -498,16 +513,16 @@ void loadConfig()
                     Serial.println(kiosk_name);
                 }
 
-                platform.id = doc["id"];
+                config.id = doc["id"];
                 if(platform.id != 0)
                 {
                     Serial.print("Loaded config for id: ");
-                    Serial.println(platform.id);
+                    Serial.println(config.id);
                 }
                 else
                 {
                     Serial.println("Could not find id config, using default id = 1");
-                    platform.id = 1;
+                    config.id = 1;
                 }
 
                 config.n_cups = doc["n_cups"] | 8;
@@ -562,8 +577,8 @@ void loadConfig()
                     Serial.println(period_sensor_pub);
                 }
 
-                platform.max_speed = doc["max_speed"];
-                if(platform.max_speed != 0)
+                config.max_speed = doc["max_speed"];
+                if(config.max_speed != 0)
                 {
                     Serial.print("Loaded config for max_speed: ");
                     Serial.println(platform.max_speed);
@@ -572,69 +587,70 @@ void loadConfig()
                 {
                     Serial.println("Could not find max_speed config");
 
-                    platform.max_speed = 1500;    // [rev/min]
+                    config.max_speed = 1500;    // [rev/min]
 
                     Serial.print("Using default config for max_speed: ");
-                    Serial.println(platform.max_speed);
+                    Serial.println(config.max_speed);
                 }
 
-                platform.max_acc = doc["max_acc"];
+                config.max_acc = doc["max_acc"];
                 if(platform.max_acc != 0)
                 {
                     Serial.print("Loaded config for max_acc: ");
-                    Serial.println(platform.max_acc);
+                    Serial.println(config.max_acc);
                 }
                 else
                 {
                     Serial.println("Could not find max_acc config");
 
-                    platform.max_acc = 200;    // [rev/min2]
+                    config.max_acc = 200;    // [rev/min2]
 
                     Serial.print("Using default config for max_acc: ");
-                    Serial.println(platform.max_acc);
+                    Serial.println(config.max_acc);
                 }
-                platform.turn_direction = doc["turn_direction"];
-                if(platform.turn_direction != 0)
+                config.turn_direction = doc["turn_direction"];
+                if(config.turn_direction != 0)
                 {
                     Serial.print("Loaded config for turn_direction: ");
-                    Serial.println(platform.turn_direction);
+                    Serial.println(config.turn_direction);
 
-                    if(abs(platform.turn_direction) != 1)
+                    if(abs(config.turn_direction) != 1)
                     {
                         Serial.print("Wrong value of turn direction, only 1 or -1 allowed. Using "
                                      "only sign...");
-                        platform.turn_direction = (platform.turn_direction >= 0) - (platform.turn_direction < 0);
+                        config.turn_direction = (config.turn_direction >= 0) - (config.turn_direction < 0);
                     }
                 }
                 else
                 {
                     Serial.println("Could not find turn_direction config");
 
-                    platform.turn_direction = 1;    // 1 clockwise, -1 counterclockwise
+                    config.turn_direction = 1;    // 1 clockwise, -1 counterclockwise
+                    
 
                     Serial.print("Using default config for turn_direction: ");
-                    Serial.println(platform.turn_direction);
+                    Serial.println(config.turn_direction);
                 }
 
                 String disable = doc["disable_after_moving"].as<String>();
                 if(disable != "null")
                 {
                     if(disable == "true")
-                        platform.disable_after_moving = true;
+                        config.disable_after_moving = true;
                     else
-                        platform.disable_after_moving = false;
+                        config.disable_after_moving = false;
 
                     Serial.print("Loaded config for disable_after_moving: ");
-                    Serial.println(platform.disable_after_moving);
+                    Serial.println(config.disable_after_moving);
                 }
                 else
                 {
                     Serial.println("Could not find disable_after_moving config");
 
-                    platform.disable_after_moving = false;
+                    config.disable_after_moving = false;
 
                     Serial.print("Using default config for disable_after_moving: ");
-                    Serial.println(platform.disable_after_moving);
+                    Serial.println(config.disable_after_moving);
                 }
 
                 platform.take_platform_delay = doc["take_platform_delay"];

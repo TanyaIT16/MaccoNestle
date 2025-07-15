@@ -65,11 +65,18 @@ void setup() {
     Platform::limitReached = false;
 
     Serial.println("Performing full rotation to find limit switch.");
-    platform.moveRelativeSteps(Platform::steps_per_revolution * platform.turn_direction);
+    long initialSteps = Platform::steps_per_revolution * platform.turn_direction;
+    Serial.print("Initial steps: ");
+    Serial.println(initialSteps);
+    platform.moveRelativeSteps(initialSteps);
     platform.start_time = millis();
+    Serial.print("Steps to go at start: ");
+    Serial.println(platform.stepper.distanceToGo());
 
     while (!Platform::limitReached && platform.stepper.isRunning()) {
         platform.stepper.run();
+        Serial.print("Remaining steps: ");
+        Serial.println(platform.stepper.distanceToGo());
 
         if (millis() - platform.start_time > 20000) {
             Serial.println("Timeout: Could not find limit switch during initial rotation.");

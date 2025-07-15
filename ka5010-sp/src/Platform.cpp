@@ -76,9 +76,13 @@ float Platform::readUltrasonicSensor(int triggerPin, int echoPin) {
 
     // Read the echo pin
     long duration = pulseIn(echoPin, HIGH);
-    
+    Serial.print("Ultrasonic duration: ");
+    Serial.println(duration);
+
     // Calculate the distance in cm
     float distanceCm = (duration * SOUND_SPEED) / 2.0; // Divide by 2 for round trip
+    Serial.print("Calculated distance: ");
+    Serial.println(distanceCm);
 
     return distanceCm;
 }
@@ -131,9 +135,20 @@ void Platform::refillCups(){
 
 void Platform::moveRelativeSteps(long steps)
 {
-    if (disable_after_moving) digitalWrite(driver_en, LOW);
+    Serial.print("moveRelativeSteps called with steps: ");
+    Serial.println(steps);
+
+    // Ensure driver is enabled before any movement
+    digitalWrite(driver_en, LOW);
+    Serial.print("driver_en state before move: ");
+    Serial.println(digitalRead(driver_en));
+
     configureDriver();
     stepper.move(steps);
+    Serial.print("driver_en state after configure: ");
+    Serial.println(digitalRead(driver_en));
+    Serial.print("Distance to go after command: ");
+    Serial.println(stepper.distanceToGo());
 }
 
 void Platform::moveBackwards()

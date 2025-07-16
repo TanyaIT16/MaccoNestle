@@ -12,8 +12,11 @@
 
 #include "PlatformStateMachine.h"
 #include "Platform.h"
+#include <vector>
+
 
 Platform platform;
+std::vector<int> scan_results;
 
 void setup() {
 
@@ -24,6 +27,7 @@ void setup() {
     loadConfig();
 
     platform.attachPlatform(config.id, config.n_cups, config.turn_direction, config.max_speed, config.max_acc, config.disable_after_moving);
+    scan_results.assign(config.n_cups, 0); // Initialize scan results with zeros
     
     platform.begin();
 
@@ -63,54 +67,8 @@ void setup() {
     sendState(state);
     Serial.println("State " + getStateString(state));
 
-    Serial.println("Performing initial positioning...");
-
-    Serial.println("Initializing driver and stepper...");
-    platform.configureDriver();
-    platform.stepper.setMaxSpeed(platform.max_speed);
-    platform.stepper.setAcceleration(platform.max_acc);
-
-
-    if (digitalRead(Platform::limitSwitchPin) == HIGH) {
-        Serial.println("Limit switch is pressed at startup. Moving backwards to release.");
-        platform.moveBackwards(); // función ya definida
-    }
-
-    Platform::limitReached = false;
-
-    Serial.println("Performing full rotation to find limit switch.");
-    long initialSteps = Platform::steps_per_revolution * platform.turn_direction;
-    Serial.print("Initial steps: ");
-    Serial.println(initialSteps);
-    platform.moveRelativeSteps(initialSteps);
-    platform.start_time = millis();
-    Serial.print("Steps to go at start: ");
-    Serial.println(platform.stepper.distanceToGo());
-
-    while (!Platform::limitReached && platform.stepper.isRunning()) {
-        platform.stepper.run();
-        //Serial.print("Remaining steps: ");
-        //Serial.println(platform.stepper.distanceToGo());
-
-        if (millis() - platform.start_time > 20000) {
-            Serial.println("Timeout: Could not find limit switch during initial rotation.");
-            platform.stepper.stop();
-            break;
-        }
-    }
-
-    if (Platform::limitReached) {
-        Serial.println("Initial positioning complete: limit switch reached.");
-        Platform::limitReached = false;
-    } else {
-        Serial.println("Initial positioning failed: limit switch NOT reached.");
-    }
-
-    platform.stepper.stop();
-    if (platform.disable_after_moving) {
-        digitalWrite(Platform::driver_en, HIGH);
-    }
-
+    // Perform initial calibration
+    platform.calibrate();
 
     // OTA setup
     OTADRIVE.setInfo(APIKEY, FW_VER);
@@ -210,6 +168,7 @@ void loop() {
                 if(platform.limitReached)
                 {
                     Serial.println("Platform is in the initial position");
+                    platform.scan(scan_results.data());
                     state = READY;
                     sendState(state);
                     Serial.println("New state " + getStateString(state));
@@ -221,6 +180,8 @@ void loop() {
                     sendState(state);
                     Serial.println("New state " + getStateString(state));
                 }
+
+
 
                 break;
             case WAITING_FOR_TAKE:
@@ -304,7 +265,7 @@ void loop() {
                 switch (status)
                 {
                     case Platform::LIMIT_REACHED:
-                        state = READY;
+                        state = CHECK;
                         sendState(state);
                         Serial.println("New state " + getStateString(state));
                         break;
@@ -345,10 +306,18 @@ void loop() {
         switch(state)
         {
             case INIT:
+                Serial.println("Platform is initializing");
+                platform.configureDriver();
+                platform.cup = false;
+                platform.previousCup = false;
+                state = CHECK;
+                sendState(state);
+                Serial.println("New state " + getStateString(state));
                 break;
             case READY:
                 break;
             case WAITING_FOR_TAKE:
+
                 break;
             case ROTATE:
                 break;
@@ -797,6 +766,27 @@ void callback(char * topic, byte * message, unsigned int length)
             return;
         }
 
+        // Special command: init to reset state machine
+
+        if (command == "calib") {
+            Serial.println("MQTT command CALIB: starting calibration");
+            platform.calibrate();
+            sendFeedback("calib", "DONE");
+            return;
+        }
+        if (command == "scan") {
+            Serial.println("MQTT command SCAN: scanning cups");
+            platform.scan(scan_results.data());
+            String msg = "";
+            for(size_t i=0;i<scan_results.size();++i){
+                msg += String(scan_results[i]);
+                if(i < scan_results.size()-1) msg += ",";
+            }
+            sendFeedback("scan", msg);
+            return;
+        }
+
+
         // Avoid processing the same command twice
         if(command == current_command) {
             Serial.println("Duplicate command received (QoS 1 duplicate): " + command);
@@ -881,7 +871,6 @@ void callback(char * topic, byte * message, unsigned int length)
     }
 }
 
-
 // Send device state through mqtt topic
 void sendState(String msg)
 {
@@ -910,7 +899,6 @@ void sendState(int state)
         time_last_msg_state = millis();
     }
 }
-
 
 // Get state string msg
 String getStateString(int state)

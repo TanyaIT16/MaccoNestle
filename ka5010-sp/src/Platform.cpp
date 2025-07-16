@@ -207,3 +207,84 @@ Platform::RotationStatus Platform::rotateToLimit(){
 void IRAM_ATTR Platform::stopMotor() {
     limitReached = true;
 }
+
+void Platform:: calibrate()
+{
+    Serial.println("Calibrating platform...");
+    digitalWrite(driver_en, LOW); // Enable driver
+    configureDriver();
+    stepper.setMaxSpeed(max_speed);
+    stepper.setAcceleration(max_acc);
+
+    // Check if the limit switch is pressed at startup
+    if (digitalRead(limitSwitchPin) == HIGH) {
+        Serial.println("Limit switch is pressed at startup. Moving backwards to release.");
+        moveBackwards(); // Move backwards to release the limit switch
+    }
+
+    limitReached = false;
+    Serial.println("Performing full rotation to find limit switch.");
+    moveRelativeSteps(steps_per_revolution * turn_direction);
+    start_time = millis();
+
+    while (!limitReached && stepper.isRunning()) {
+        stepper.run();
+        if (millis() - start_time > 20000) {
+            Serial.println("Timeout: Could not find limit switch during initial rotation.");
+            stepper.stop();
+            break;
+        }
+    }
+
+    if (limitReached) {
+        Serial.println("Initial positioning complete: limit switch reached.");
+        limitReached = false; // Reset the limit switch state
+    } else {
+        Serial.println("Initial positioning failed: limit switch NOT reached.");
+    }
+
+    stepper.stop();
+    if (disable_after_moving) {
+        digitalWrite(driver_en, HIGH); // Disable driver after calibration
+    }
+}
+
+void Platform::scan(int *results) {
+
+    Serial.println("Scanning for cups or bottles...");
+    if (results == nullptr) {
+        Serial.println("Error: results array is null.");
+        return;
+    }
+    for(int i=0; i<n_cups; i++)
+    {
+        float distance = readUltrasonicSensor(trigPin, echoPin);
+        if (compareUltrasonicReadings(distance, limitDistance)) {
+            results[i] = 1; // Cup detected
+            Serial.print("Cup detected at position ");
+            Serial.println(i);
+            cups_on_platform++;
+        } else {
+            results[i] = 0; // No cup detected
+            Serial.print("No cup detected at position ");
+            Serial.println(i);
+        }
+
+        if(i < n_cups - 1) {
+            if(disable_after_moving) {
+                digitalWrite(driver_en, LOW); // Enable driver for next movement
+            }
+            configureDriver();
+            stepper.move(stepsForNextCup(n_cups, steps_per_revolution, turn_direction));
+
+            while(stepper.distanceToGo() != 0) {
+                stepper.run();
+            }
+
+            if(disable_after_moving) {
+                digitalWrite(driver_en, HIGH); // Disable driver after movement
+            }
+            delay(100); // Wait for a second before the next measurement
+        }
+    }
+}

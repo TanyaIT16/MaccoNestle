@@ -37,6 +37,8 @@ class Platform {
         void startRefillCycle();
         void moveRelativeSteps(long steps);
         void moveBackwards();
+        void calibrate();
+        void scan(int *results);
         //int rotateToLimitSwitch();
 
 
@@ -119,6 +121,7 @@ class Platform {
         };
         
         RotationStatus rotateToLimit();
+
 
 };
 

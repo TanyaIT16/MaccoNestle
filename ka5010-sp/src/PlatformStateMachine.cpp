@@ -101,6 +101,7 @@ void setup() {
 
     if (Platform::limitReached) {
         Serial.println("Initial positioning complete: limit switch reached.");
+        Platform::limitReached = false;
     } else {
         Serial.println("Initial positioning failed: limit switch NOT reached.");
     }
@@ -109,6 +110,7 @@ void setup() {
     if (platform.disable_after_moving) {
         digitalWrite(Platform::driver_en, HIGH);
     }
+
 
     // OTA setup
     OTADRIVE.setInfo(APIKEY, FW_VER);
@@ -324,6 +326,16 @@ void loop() {
                 break;
             case ERROR:
                 Serial.println("Platform is in ERROR state. Waiting for MQTT command to reset.");
+                /*
+                // Wait for MQTT command to reset the state
+                if(current_command == "init")
+                {
+                    Serial.println("Resetting platform state from ERROR to INIT");
+                    state = INIT;
+                    sendState(state);
+                    Serial.println("New state " + getStateString(state));
+                    current_command = "none";
+                }*/
                 break;
         }
     }

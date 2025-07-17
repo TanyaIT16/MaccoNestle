@@ -231,7 +231,8 @@ Platform::RotationStatus Platform::calibrate()
 
     while (!limitReached && stepper.isRunning()) {
         stepper.run();
-        if (millis() - start_time > 20000) {
+        // Timeout check
+        if (millis() - start_time > 36000) {
             Serial.println("Timeout: Could not find limit switch during initial rotation.");
             return ROTATION_TIMEOUT;
             stepper.stop();
@@ -276,9 +277,13 @@ void Platform::scan(int *results) {
     for (int i = 0; i < n_cups; i++) {
 
         Serial.printf("Scanning position %d...\n", i);
-        delay(800); // Allow any vibration to settle
+        delay(500); // Allow any vibration to settle
 
-        bool cupDetected = updateCupPresence();
+        // Medición directa forzada
+        distanceCm = readUltrasonicSensor(trigPin, echoPin);
+        Serial.printf("Calculated distance: %.2f cm\n", distanceCm);
+
+        bool cupDetected = compareUltrasonicReadings(distanceCm, limitDistance);
         if (cupDetected) {
             Serial.printf("Cup detected at position %d\n", i);
             results[i] = 1;
@@ -290,7 +295,7 @@ void Platform::scan(int *results) {
 
         Serial.printf("cups_on_platform count: %d\n", cups_on_platform);
 
-        if (i < n_cups - 1) {
+        if (i < n_cups) {
             if (disable_after_moving) {
                 digitalWrite(driver_en, LOW);
                 Serial.println("Driver enabled before move to next cup.");
@@ -314,6 +319,7 @@ void Platform::scan(int *results) {
             delay(300); // Stabilization delay before next detection
         }
     }
+
 
     if (disable_after_moving) {
         digitalWrite(driver_en, HIGH);

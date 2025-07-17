@@ -113,6 +113,7 @@ void loop() {
         switch(state)
         {
             case INIT:
+                platform.ActualPosition = 0; // Reset actual position
                 Serial.println("Platform is initializing");
                 platform.configureDriver();
                 platform.cup = false;
@@ -122,6 +123,8 @@ void loop() {
                 Serial.println("New state " + getStateString(state));
                 break;
             case READY:
+                Serial.print("ACTUAL POSITION AAAAAAAA: ");
+                Serial.println(platform.ActualPosition);
                 if(platform.cup)
                 {
                     Serial.print("Number of cups: ");
@@ -130,8 +133,7 @@ void loop() {
                     state = WAITING_FOR_TAKE;
                     sendState(state);
                     Serial.println("New state " + getStateString(state));
-                    //////////////////////////////////////////
-                    // Check if the stepper is moving
+
                     // Check if the stepper is moving
                     if(platform.stepper.isRunning())
                     {
@@ -154,24 +156,25 @@ void loop() {
                         platform.stepper.stop();
                         if (platform.disable_after_moving) digitalWrite(platform.driver_en, HIGH);
                     }
-                    /////////////////////////////////////////
                 }
+                if(platform.ActualPosition < scan_results.size() && scan_results[platform.ActualPosition] == 0) {
+                    Serial.println("There is no cup, moving to next position");
+                    if(platform.disable_after_moving) digitalWrite(platform.driver_en, LOW);
+                    platform.configureDriver();
+                    platform.moveToNextCup();  // inicia el movimiento
+                    state = ROTATE;
+                    sendState(state);
+                    Serial.println("New state " + getStateString(state));
+                }
+
                 break;
             case CHECK:
                 // Check if the platform is in the initial position, if it is pressing the limit switch
-                if(digitalRead(Platform::limitSwitchPin) == HIGH)
+                if(platform.limitReached || digitalRead(Platform::limitSwitchPin) == HIGH)
                 {
                     Serial.println("Platform is in the initial position");
+                    delay(1000);  // Espera para evitar movimientos inmediatos
                     platform.scan(scan_results.data());
-                    // Prinrt scan results
-                    /*
-                    Serial.print("Scan results: ");
-                    for(int i = 0; i < platform.n_cups; i++)
-                    {
-                        Serial.print(scan_results[i]);
-                        if(i < platform.n_cups - 1) Serial.print(", ");
-                    }
-                    */
                     state = READY;
                     sendState(state);
                     Serial.println("New state " + getStateString(state));
@@ -183,8 +186,6 @@ void loop() {
                     sendState(state);
                     Serial.println("New state " + getStateString(state));
                 }
-
-
 
                 break;
             case WAITING_FOR_TAKE:
@@ -227,6 +228,7 @@ void loop() {
                 }
                 break;
             case ROTATE:
+                platform.ActualPosition++;
                 if(!platform.stepper.isRunning()) {
                     state = READY;
                     sendState(state);
@@ -271,6 +273,8 @@ void loop() {
                         state = CHECK;
                         sendState(state);
                         Serial.println("New state " + getStateString(state));
+                        platform.ActualPosition = 0; // Reset actual position
+
                         break;
 
                     case Platform::ROTATION_ERROR:

@@ -91,6 +91,10 @@ unsigned long int time_last_msg_state = 0;
 unsigned long int period_sensor_pub; // Periodic time to publish sensor information [ms]
 unsigned long int time_last_msg_sensor = 0;
 
+// Variables to confirm abscence of a cup on the platform
+unsigned long cupConfirmationStartTime = 0; // Start time of cup confirmation
+const unsigned long cupConfirmationDelay = 3000;
+
 // Current time of the loop
 unsigned long int currentTime = 0;
 

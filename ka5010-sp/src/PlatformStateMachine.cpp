@@ -32,16 +32,6 @@ void setup() {
     platform.begin();
 
 
-
-    //Serial.println("DIRECTION: " + String(config.turn_direction));
-
-    Serial.println("Registering ISR for limit switch...");
-    void (*isrRef)() = Platform::stopMotor;
-    Serial.printf("ISR reference address: %p\n", isrRef);
-    attachInterrupt(digitalPinToInterrupt(Platform::limitSwitchPin), isrRef, RISING);
-    Serial.println("ISR registered successfully.");
-
-
     WifiConnection wifi(ssid,password,wifi_timeout);
     wifi.wifiConnect();
 
@@ -63,12 +53,16 @@ void setup() {
     // Set callback for mqtt messages
     client.setCallback(callback);
 
+    // Perform initial calibration
+    platform.calibrate();
+
+    delay(1000); 
+
     state = INIT;
     sendState(state);
     Serial.println("State " + getStateString(state));
 
-    // Perform initial calibration
-    platform.calibrate();
+
 
     // OTA setup
     OTADRIVE.setInfo(APIKEY, FW_VER);
@@ -165,10 +159,19 @@ void loop() {
                 break;
             case CHECK:
                 // Check if the platform is in the initial position, if it is pressing the limit switch
-                if(platform.limitReached)
+                if(digitalRead(Platform::limitSwitchPin) == HIGH)
                 {
                     Serial.println("Platform is in the initial position");
                     platform.scan(scan_results.data());
+                    // Prinrt scan results
+                    /*
+                    Serial.print("Scan results: ");
+                    for(int i = 0; i < platform.n_cups; i++)
+                    {
+                        Serial.print(scan_results[i]);
+                        if(i < platform.n_cups - 1) Serial.print(", ");
+                    }
+                    */
                     state = READY;
                     sendState(state);
                     Serial.println("New state " + getStateString(state));
@@ -261,7 +264,7 @@ void loop() {
             case ROTATING_TO_LIMIT:
                 // Move the platform to the limit switch
                 Platform::RotationStatus status;
-                status = platform.rotateToLimit();
+                status = platform.calibrate();
                 switch (status)
                 {
                     case Platform::LIMIT_REACHED:
@@ -315,13 +318,74 @@ void loop() {
                 Serial.println("New state " + getStateString(state));
                 break;
             case READY:
-                break;
-            case WAITING_FOR_TAKE:
+                if(!platform.cup)
+                {
+                    if(cupConfirmationStartTime == 0) 
+                    {
+                        cupConfirmationStartTime = millis(); // Start the timer
+                    } 
 
+                    if (millis() - cupConfirmationStartTime > cupConfirmationDelay) 
+                    {
+                        // If the cup is still not detected after the delay, update the state
+                        Serial.println("No cup detected after confirmation delay");
+                        digitalWrite(Platform::driver_en, LOW);
+                        platform.configureDriver();
+                        platform.driver.freewheel(0); // Freewheel the driver
+                        Serial.print("Number of cups: ");
+                        Serial.println(platform.cups_on_platform);
+                        state = WAITING_FOR_DROP;
+                        sendState(state);
+                        Serial.println("New state " + getStateString(state));
+                    }
+                    else
+                    {
+                        Serial.println("Waiting for cup confirmation...");
+                    }
+                }
+                else
+                {
+                    cupConfirmationStartTime = 0; // Reset the timer if a cup is detected
+                }
+                
+                break;
+            case WAITING_FOR_DROP:
+                digitalWrite(Platform::driver_en, LOW);
+                platform.configureDriver();
+                platform.driver.freewheel(0); // Freewheel the driver
+                if(finnish_command == 1)
+                {
+                    platform.driver.freewheel(1); // Freewheel the driver
+                    state = ROTATE;
+                    sendState(state);
+                    Serial.println("New state " + getStateString(state));
+
+                    current_command = "movecup";
+
+                    delay(platform.serve_platform_delay);
+                    if(platform.disable_after_moving) digitalWrite(Platform::driver_en, HIGH);
+                    platform.configureDriver();
+                    platform.moveToNextCup(); // Move to the next cup position
+                    
+                    finnish_command = 0; // Reset the command flag
+                }
                 break;
             case ROTATE:
+                if(!platform.stepper.isRunning()) {
+                    state = READY;
+                    sendState(state);
+                    Serial.println("New state " + getStateString(state));
+
+                    if(platform.disable_after_moving) digitalWrite(platform.driver_en, HIGH);
+
+                    if(current_command == "movecup") {
+                        sendFeedback(current_command, "FINISHED");
+                        current_command = "none";
+                    }
+                }
                 break;
             case ERROR:
+                Serial.println("Platform is in ERROR state. Waiting for MQTT command to reset.");
                 break;
         }
     }

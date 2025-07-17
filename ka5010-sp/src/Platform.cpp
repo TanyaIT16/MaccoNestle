@@ -21,7 +21,7 @@ void Platform::attachPlatform(int _id, int _n_cups, int _turn_direction, int _ma
     cups_on_platform = n_cups;
 
     // Set the limit distance for stable cup detection
-    limitDistance = 10.0; // Example value in cm
+    limitDistance = 15.0; // Example value in cm
 }
 
 void Platform::begin() {
@@ -179,6 +179,7 @@ void Platform::startRefillCycle()
     start_time = millis(); // Reset para el timeout en el estado ROTATING_TO_LIMIT
 }
 
+/*
 Platform::RotationStatus Platform::rotateToLimit(){
     stepper.run();
     // Check if the limit switch has been reached
@@ -203,12 +204,13 @@ Platform::RotationStatus Platform::rotateToLimit(){
 
     return ROTATING;
 }
+*/
 
 void IRAM_ATTR Platform::stopMotor() {
     limitReached = true;
 }
 
-void Platform:: calibrate()
+Platform::RotationStatus Platform::calibrate()
 {
     Serial.println("Calibrating platform...");
     digitalWrite(driver_en, LOW); // Enable driver
@@ -231,6 +233,7 @@ void Platform:: calibrate()
         stepper.run();
         if (millis() - start_time > 20000) {
             Serial.println("Timeout: Could not find limit switch during initial rotation.");
+            return ROTATION_TIMEOUT;
             stepper.stop();
             break;
         }
@@ -239,8 +242,13 @@ void Platform:: calibrate()
     if (limitReached) {
         Serial.println("Initial positioning complete: limit switch reached.");
         limitReached = false; // Reset the limit switch state
+        return LIMIT_REACHED;
     } else {
         Serial.println("Initial positioning failed: limit switch NOT reached.");
+        if(disable_after_moving) {
+            digitalWrite(driver_en, HIGH); // Disable driver if not moving
+        }
+        return ROTATION_ERROR;
     }
 
     stepper.stop();
@@ -251,40 +259,75 @@ void Platform:: calibrate()
 
 void Platform::scan(int *results) {
 
-    Serial.println("Scanning for cups or bottles...");
+    Serial.println("Starting scan of platform cups...");
+
     if (results == nullptr) {
         Serial.println("Error: results array is null.");
         return;
     }
-    for(int i=0; i<n_cups; i++)
-    {
-        float distance = readUltrasonicSensor(trigPin, echoPin);
-        if (compareUltrasonicReadings(distance, limitDistance)) {
-            results[i] = 1; // Cup detected
-            Serial.print("Cup detected at position ");
-            Serial.println(i);
+
+    cups_on_platform = 0; // Reset cup count
+
+    configureDriver();
+    stepper.setMaxSpeed(max_speed);
+    stepper.setAcceleration(max_acc);
+    digitalWrite(driver_en, LOW); // Ensure driver is enabled
+
+    for (int i = 0; i < n_cups; i++) {
+
+        Serial.printf("Scanning position %d...\n", i);
+        delay(300); // Allow any vibration to settle
+
+        bool cupDetected = updateCupPresence();
+        if (cupDetected) {
+            Serial.printf("Cup detected at position %d\n", i);
+            results[i] = 1;
             cups_on_platform++;
         } else {
-            results[i] = 0; // No cup detected
-            Serial.print("No cup detected at position ");
-            Serial.println(i);
+            Serial.printf("No cup at position %d\n", i);
+            results[i] = 0;
         }
 
-        if(i < n_cups - 1) {
-            if(disable_after_moving) {
-                digitalWrite(driver_en, LOW); // Enable driver for next movement
-            }
-            configureDriver();
-            stepper.move(stepsForNextCup(n_cups, steps_per_revolution, turn_direction));
+        Serial.printf("cups_on_platform count: %d\n", cups_on_platform);
 
-            while(stepper.distanceToGo() != 0) {
-                stepper.run();
+        if (i < n_cups - 1) {
+            if (disable_after_moving) {
+                digitalWrite(driver_en, LOW);
+                Serial.println("Driver enabled before move to next cup.");
+                configureDriver();
+                stepper.setMaxSpeed(max_speed);
+                stepper.setAcceleration(max_acc);
             }
 
-            if(disable_after_moving) {
-                digitalWrite(driver_en, HIGH); // Disable driver after movement
+            moveToNextCup();
+
+            Serial.printf("Stepper starting move. Distance to go: %ld\n", stepper.distanceToGo());
+            int safeguard_counter = 0;
+            while (stepper.distanceToGo() != 0) {
+                bool running = stepper.run();
+                if (!running) {
+                    Serial.println("Stepper stopped itself.");
+                    break;
+                }
+                safeguard_counter++;
+                if (safeguard_counter > 10000) {
+                    Serial.println("Stepper safeguard limit reached, breaking loop.");
+                    break;
+                }
             }
-            delay(100); // Wait for a second before the next measurement
+
+            if (disable_after_moving) {
+                digitalWrite(driver_en, HIGH);
+                Serial.println("Driver disabled after movement.");
+            }
+
+            delay(300); // Stabilization delay before next detection
         }
     }
+
+    if (disable_after_moving) {
+        digitalWrite(driver_en, HIGH);
+    }
+
+    Serial.printf("Scan completed. Total cups detected: %d\n", cups_on_platform);
 }

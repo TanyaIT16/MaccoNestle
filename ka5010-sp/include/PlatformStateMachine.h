@@ -98,6 +98,9 @@ const unsigned long cupConfirmationDelay = 3000;
 // Current time of the loop
 unsigned long int currentTime = 0;
 
+// Actual position of the platform
+int ActualPosition = 0; // Current position of the platform
+
 // States
 #define ERROR -1
 #define INIT 0

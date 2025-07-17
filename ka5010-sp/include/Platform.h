@@ -58,7 +58,7 @@ class Platform {
             // Delays
             unsigned long int take_platform_delay = 5000; // Delay to take a cup from the platform [ms]
             unsigned long int serve_platform_delay = 8000; // Delay to serve a cup on the platform [ms]
-            int ActualPosition = 0; // Current position of the platform
+            //int ActualPosition = 0; // Current position of the platform
 
         // --- Hardware static varibales ---
         // Define Driver pins

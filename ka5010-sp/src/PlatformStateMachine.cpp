@@ -62,7 +62,7 @@ void setup() {
     sendState(state);
     Serial.println("State " + getStateString(state));
 
-
+    
 
     // OTA setup
     OTADRIVE.setInfo(APIKEY, FW_VER);
@@ -113,8 +113,9 @@ void loop() {
         switch(state)
         {
             case INIT:
-                platform.ActualPosition = 0; // Reset actual position
-                Serial.println("Platform is initializing");
+                //Serial.println("Platform is initializing");
+                //Serial.print("ACTUAL POSITION AAAAAAAA: ");
+                //Serial.println(ActualPosition);
                 platform.configureDriver();
                 platform.cup = false;
                 platform.previousCup = false;
@@ -123,8 +124,8 @@ void loop() {
                 Serial.println("New state " + getStateString(state));
                 break;
             case READY:
-                Serial.print("ACTUAL POSITION AAAAAAAA: ");
-                Serial.println(platform.ActualPosition);
+                //Serial.print("ACTUAL POSITION AAAAAAAA: ");
+                //Serial.println(ActualPosition);
                 if(platform.cup)
                 {
                     Serial.print("Number of cups: ");
@@ -157,7 +158,7 @@ void loop() {
                         if (platform.disable_after_moving) digitalWrite(platform.driver_en, HIGH);
                     }
                 }
-                if(platform.ActualPosition < scan_results.size() && scan_results[platform.ActualPosition] == 0) {
+                if(ActualPosition < scan_results.size() && scan_results[ActualPosition] == 0) {
                     Serial.println("There is no cup, moving to next position");
                     if(platform.disable_after_moving) digitalWrite(platform.driver_en, LOW);
                     platform.configureDriver();
@@ -169,6 +170,8 @@ void loop() {
 
                 break;
             case CHECK:
+                //Serial.print("ACTUAL POSITION AAAAAAAA: ");
+                //Serial.println(ActualPosition);
                 // Check if the platform is in the initial position, if it is pressing the limit switch
                 if(platform.limitReached || digitalRead(Platform::limitSwitchPin) == HIGH)
                 {
@@ -186,6 +189,9 @@ void loop() {
                     sendState(state);
                     Serial.println("New state " + getStateString(state));
                 }
+
+                //Serial.print("ACTUAL POSITION AAAAAAAA: ");
+                //Serial.println(ActualPosition);
 
                 break;
             case WAITING_FOR_TAKE:
@@ -228,8 +234,10 @@ void loop() {
                 }
                 break;
             case ROTATE:
-                platform.ActualPosition++;
                 if(!platform.stepper.isRunning()) {
+                    ActualPosition++;
+                    //Serial.print("ACTUAL POSITION AAAAAAAA: ");
+                    //Serial.println(ActualPosition);
                     state = READY;
                     sendState(state);
                     Serial.println("New state " + getStateString(state));
@@ -273,7 +281,7 @@ void loop() {
                         state = CHECK;
                         sendState(state);
                         Serial.println("New state " + getStateString(state));
-                        platform.ActualPosition = 0; // Reset actual position
+                        ActualPosition = 0; // Reset actual position
 
                         break;
 
@@ -308,6 +316,7 @@ void loop() {
         }
     }
 
+    // Platform 2 state machine (sin probar)
     if(platform.id==2)
     {
         switch(state)
@@ -399,6 +408,15 @@ void loop() {
         switch(state)
         {
             case INIT:
+                //Serial.println("Platform is initializing");
+                //Serial.print("ACTUAL POSITION AAAAAAAA: ");
+                //Serial.println(ActualPosition);
+                platform.configureDriver();
+                platform.cup = false;
+                platform.previousCup = false;
+                state = CHECK;
+                sendState(state);
+                Serial.println("New state " + getStateString(state));
                 break;
             case READY:
                 break;

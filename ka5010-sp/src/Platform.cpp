@@ -276,7 +276,7 @@ void Platform::scan(int *results) {
     for (int i = 0; i < n_cups; i++) {
 
         Serial.printf("Scanning position %d...\n", i);
-        delay(300); // Allow any vibration to settle
+        delay(800); // Allow any vibration to settle
 
         bool cupDetected = updateCupPresence();
         if (cupDetected) {
@@ -300,20 +300,10 @@ void Platform::scan(int *results) {
             }
 
             moveToNextCup();
-
             Serial.printf("Stepper starting move. Distance to go: %ld\n", stepper.distanceToGo());
-            int safeguard_counter = 0;
+
             while (stepper.distanceToGo() != 0) {
-                bool running = stepper.run();
-                if (!running) {
-                    Serial.println("Stepper stopped itself.");
-                    break;
-                }
-                safeguard_counter++;
-                if (safeguard_counter > 10000) {
-                    Serial.println("Stepper safeguard limit reached, breaking loop.");
-                    break;
-                }
+                stepper.run();
             }
 
             if (disable_after_moving) {
